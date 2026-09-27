@@ -1,0 +1,50 @@
+# Custom navigation backend (A* on /map + DWA on the filtered Ouster cloud).
+cloud_self_filter:
+  ros__parameters:
+    base_frame: base_link
+    # Origin One body, wheels, Ouster mount and GNSS antenna, with a few cm margin
+    box_min_x: -0.40
+    box_max_x: 0.40
+    box_min_y: -0.34
+    box_max_y: 0.34
+    box_min_z: -0.20
+    box_max_z: 0.60
+
+custom_navigator:
+  ros__parameters:
+    global_frame: map
+    robot_frame: base_link
+    memory_frame: icp_odom     # smooth lidar-corrected odometry (wheel odom drifts when turning)
+    control_rate: 10.0
+    replan_period: 1.0
+    goal_tolerance: 0.3
+    align_goal_yaw: false
+    lookahead: 1.0
+    obstacle_min_z: 0.08
+    obstacle_max_z: 0.80
+    obstacle_range: 4.0
+    memory_duration: 2.0
+    stuck_timeout: 10.0
+    stuck_distance: 0.15
+    max_recoveries: 4
+    max_plan_failures: 3
+    planner:
+      robot_radius: 0.40        # between inscribed (0.29) and circumscribed (0.44) radius
+      inflation_radius: 1.0
+      inflation_weight: 4.0
+      allow_unknown: true
+      unknown_cost: 3.0
+      occupied_threshold: 65
+    dwa:
+      max_v: 0.4
+      max_w: 1.0
+      acc_v: 1.0
+      acc_w: 2.5
+      sim_time: 2.0
+      half_length: 0.33
+      half_width: 0.29
+      margin: 0.06
+      w_progress: 2.0
+      w_heading: 0.8
+      w_clearance: 0.15
+      w_speed: 0.6

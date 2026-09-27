@@ -1,0 +1,17 @@
+frontier_explorer:
+  ros__parameters:
+    global_frame: map
+    robot_frame: base_link
+    action_name: navigate_to_pose   # served by Nav2's bt_navigator or by custom_navigator
+    update_period: 1.0
+    robot_clearance: 0.40           # free cells closer to obstacles are not traversable
+    min_frontier_cells: 10          # 0.5 m at 5 cm resolution
+    size_weight: 1.0                # score = size_weight * length - distance_weight * travel
+    distance_weight: 1.0
+    blacklist_radius: 0.6
+    goal_explored_radius: 0.6
+    progress_timeout: 30.0
+    progress_distance: 0.3
+    empty_checks_to_finish: 3
+    return_to_start: true
+    autostart: true
