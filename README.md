@@ -13,7 +13,7 @@ standard ROS messages.
 | Package | Purpose |
 |---|---|
 | `origin_lidar_localization` | 3D SLAM and localization from the Ouster point cloud (RTAB-Map) |
-| `origin_frontier_explore` | Frontier exploration and Nav2 bringup |
+| `origin_frontier_explore` | Own C++ frontier explorer; navigation backend Nav2 or custom (A* + DWA) |
 | `origin_yolo_perception` | YOLO detection, tracking and counting on the camera stream |
 | `origin_bringup` | Top-level launch file, RViz config and simulation worlds |
 
@@ -28,7 +28,10 @@ docker exec -it avular_jazzy bash
 # Inside the container
 colcon build --symlink-install && source install/setup.bash
 ros2 launch origin_bringup sim.launch.py                                   # Gazebo, origin_office world
-ros2 launch origin_lidar_localization slam.launch.py use_sim_time:=true rviz:=true   # 3D SLAM
+ros2 launch origin_frontier_explore explore.launch.py use_sim_time:=true rviz:=true backend:=nav2
+#   explores the unknown world autonomously while RTAB-Map builds the 3D map (backend:=custom for
+#   the own A* + DWA navigator); then localize and navigate in the saved map, see
+#   origin_frontier_explore/README.md
 ```
 
 `origin_bringup/worlds/origin_office.sdf` is a 20 × 14 m, five-room indoor test world with
