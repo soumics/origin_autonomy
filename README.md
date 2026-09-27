@@ -17,6 +17,23 @@ standard ROS messages.
 | `origin_yolo_perception` | YOLO detection, tracking and counting on the camera stream |
 | `origin_bringup` | Top-level launch file, RViz config and simulation worlds |
 
+## Quick start (simulation)
+
+```bash
+# Development container (from the workspace root, once)
+docker build -t origin_autonomy:jazzy src/origin_autonomy/docker
+src/origin_autonomy/docker/run.sh
+docker exec -it avular_jazzy bash
+
+# Inside the container
+colcon build --symlink-install && source install/setup.bash
+ros2 launch origin_bringup sim.launch.py                                   # Gazebo, origin_office world
+ros2 launch origin_lidar_localization slam.launch.py use_sim_time:=true rviz:=true   # 3D SLAM
+```
+
+`origin_bringup/worlds/origin_office.sdf` is a 20 × 14 m, five-room indoor test world with
+obstacles of different heights. It uses no online models, so it loads offline.
+
 ## Dependencies
 
 - [avular_origin_description](https://github.com/soumics/avular_origin_description) and
