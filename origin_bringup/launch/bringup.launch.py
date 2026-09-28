@@ -187,6 +187,8 @@ def launch_setup(context):
             for k in topics:
                 if found.get(k):
                     topics[k] = found[k]
+            if found.get("lidar_note"):
+                _say(f"Lidar over Wi-Fi: {found['lidar_note']} -> using {found['lidar']}")
             # Never drive the robot's internal /robot/cmd_vel: Avular's input for custom
             # software is /robot/cmd_vel_user (executed in USER control mode).
             topics["cmd_vel"] = "/robot/cmd_vel_user"

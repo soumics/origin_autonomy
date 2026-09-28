@@ -67,6 +67,30 @@ def main():
     twists = sorted(n for n, t in topics.items() if "geometry_msgs/msg/Twist" in t)
 
     lidar = pick(clouds, ("ouster", "lidar", "points"), avoid=("depth", "camera"))
+
+    # Over the robot's Wi-Fi the raw Ouster cloud (all fields, ~1-1.5 MB per scan) arrives with
+    # gaps of seconds. Prefer the robot's own filtered cloud if it is much smaller but still
+    # dense enough for SLAM.
+    lidar_note = ""
+    filtered = "/robot/lidar/points_filtered"
+    all_topics = dict(node.get_topic_names_and_types())
+    if lidar and filtered in all_topics and node.count_publishers(filtered):
+        from rclpy.qos import qos_profile_sensor_data
+        from sensor_msgs.msg import PointCloud2
+        sample = {}
+        subs = [node.create_subscription(
+            PointCloud2, t, lambda m, t=t: sample.setdefault(t, (len(m.data), m.width * m.height)),
+            qos_profile_sensor_data) for t in (lidar, filtered)]
+        t0 = time.monotonic()
+        while len(sample) < 2 and time.monotonic() - t0 < 6.0:
+            rclpy.spin_once(node, timeout_sec=0.1)
+        for s in subs:
+            node.destroy_subscription(s)
+        if len(sample) == 2:
+            (rb, rn), (fb, fn) = sample[lidar], sample[filtered]
+            lidar_note = f"raw {rb / 1e6:.2f} MB ({rn} pts), filtered {fb / 1e6:.2f} MB ({fn} pts)"
+            if fb <= 0.5 * rb and fn >= 3000:
+                lidar = filtered
     sim_publishers = set()
     if lidar:
         sim_publishers = {i.node_name for i in node.get_publishers_info_by_topic(lidar)}
@@ -94,7 +118,7 @@ def main():
     print(json.dumps({
         "found": found, "reason": reason, "lidar": lidar, "image": color, "depth": depth,
         "camera_info": info, "odom": odom, "cmd_vel": cmd, "topics": len(topics),
-        "cmd_vel_user_listened": listened,
+        "cmd_vel_user_listened": listened, "lidar_note": lidar_note,
     }))
     node.destroy_node()
     rclpy.shutdown()

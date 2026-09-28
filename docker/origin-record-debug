@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# Record 20 s of what the autonomy stack sees on the real robot, for offline analysis:
+#   docker exec origin_run origin-record-debug      ->  ~/.origin_autonomy/debug_<time>/
+source /opt/origin_ws/entrypoint_env.sh
+export ROS_AUTOMATIC_DISCOVERY_RANGE=SUBNET
+OUT=/root/.ros/debug_$(date +%Y%m%d-%H%M%S)
+echo "Recording 20 s to ${OUT/\/root\/.ros/~\/.origin_autonomy} ..."
+timeout 25 ros2 bag record -o "$OUT" --max-cache-size 0 \
+  /origin/lidar/points /origin/lidar/points_filtered /robot/lidar/points_filtered \
+  /tf /tf_static /map /robot/odom /rtabmap/odom_info \
+  /local_costmap/costmap /local_costmap/published_footprint \
+  /collision_monitor_state /cmd_vel_nav /cmd_vel_smoothed /robot/cmd_vel_user \
+  /frontier_explorer/status /robot/control_mode >/dev/null 2>&1 &
+PID=$!
+sleep 21; kill -INT $PID 2>/dev/null; wait $PID 2>/dev/null
+origin-check-robot > "$OUT/check.txt" 2>&1
+chmod -R a+rwX "$OUT"
+du -sh "$OUT" | sed "s#/root/.ros#~/.origin_autonomy#"

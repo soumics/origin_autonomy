@@ -108,7 +108,8 @@ ENV NVIDIA_DRIVER_CAPABILITIES=all \
 RUN cp /opt/origin_ws/src/origin_autonomy/docker/entrypoint_env.sh /opt/origin_ws/ \
  && install -m 755 /opt/origin_ws/src/origin_autonomy/docker/origin-enable-driving \
       /opt/origin_ws/src/origin_autonomy/docker/origin-stop-driving \
-      /opt/origin_ws/src/origin_autonomy/docker/origin-check-robot /usr/local/bin/ \
+      /opt/origin_ws/src/origin_autonomy/docker/origin-check-robot \
+      /opt/origin_ws/src/origin_autonomy/docker/origin-record-debug /usr/local/bin/ \
  && echo 'source /opt/origin_ws/entrypoint_env.sh' >> /root/.bashrc
 WORKDIR /root
 ENTRYPOINT ["/opt/origin_ws/src/origin_autonomy/docker/entrypoint.sh"]

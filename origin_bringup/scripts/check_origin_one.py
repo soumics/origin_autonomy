@@ -76,6 +76,61 @@ def main():
     while time.monotonic() - t0 < args.rate_window:
         rclpy.spin_once(node, timeout_sec=0.05)
 
+    # Lidar payload: what the Wi-Fi link has to carry, raw vs. the robot's filtered cloud.
+    sizes = {}
+    from sensor_msgs.msg import PointCloud2
+    for name in ("/robot/lidar/points", "/robot/lidar/points_filtered"):
+        if name in topics:
+            got = []
+            s = node.create_subscription(PointCloud2, name, got.append, qos_profile_sensor_data)
+            t0 = time.monotonic()
+            while len(got) < 3 and time.monotonic() - t0 < 6.0:
+                rclpy.spin_once(node, timeout_sec=0.1)
+            node.destroy_subscription(s)
+            if got:
+                m = got[-1]
+                n = m.width * m.height
+                span = time.monotonic() - t0
+                sizes[name] = (len(m.data), n, m.point_step, m.header.frame_id,
+                               [f.name for f in m.fields], len(got) / max(span, 1e-3))
+
+    # Self-hits: filtered lidar points inside the robot's turning circle (0.55 m) block the
+    # collision monitor. Needs the running stack (our self-filtered cloud + TF).
+    selfhits = None
+    if "/origin/lidar/points_filtered" in topics:
+        import numpy as np
+        from tf2_ros import Buffer, TransformListener
+        buf = Buffer()
+        TransformListener(buf, node)
+        got = []
+        s = node.create_subscription(PointCloud2, "/origin/lidar/points_filtered", got.append,
+                                     qos_profile_sensor_data)
+        t0 = time.monotonic()
+        while not got and time.monotonic() - t0 < 8.0:
+            rclpy.spin_once(node, timeout_sec=0.1)
+        if got:
+            m = got[-1]
+            try:
+                from rclpy.time import Time
+                tr = buf.lookup_transform("base_link", m.header.frame_id, Time()).transform
+                raw = np.frombuffer(bytes(m.data), np.uint8).reshape(-1, m.point_step)
+                off = {f.name: f.offset for f in m.fields}
+                xyz = np.stack([raw[:, off[k]:off[k] + 4].copy().view(np.float32)[:, 0]
+                                for k in "xyz"], 1).astype(float)
+                xyz = xyz[np.isfinite(xyz).all(1)]
+                q = tr.rotation
+                x, y, z, w = q.x, q.y, q.z, q.w
+                R = np.array([[1-2*(y*y+z*z), 2*(x*y-z*w), 2*(x*z+y*w)],
+                              [2*(x*y+z*w), 1-2*(x*x+z*z), 2*(y*z-x*w)],
+                              [2*(x*z-y*w), 2*(y*z+x*w), 1-2*(x*x+y*y)]])
+                b = xyz @ R.T + [tr.translation.x, tr.translation.y, tr.translation.z]
+                band = (b[:, 2] > 0.08) & (b[:, 2] < 0.8)
+                r = np.hypot(b[:, 0], b[:, 1])
+                close = b[band & (r < 0.55)]
+                selfhits = (len(close), close[:8].round(2).tolist())
+            except Exception as e:  # noqa: BLE001
+                selfhits = (-1, str(e))
+
     ok_all = True
     rows = []
     for name, typ, direction, essential, what in EXPECTED:
@@ -121,6 +176,12 @@ def main():
                                                    "set_parameters_atomically"))
     print(f"  Other /robot topics ({len(extra_t)}): " + (", ".join(extra_t) or "-"))
     print(f"  Other /robot services ({len(extra_s)}): " + (", ".join(extra_s) or "-"))
+    for name, (nbytes, n, step, frame, fields, hz) in sizes.items():
+        print(f"  {name}: {nbytes / 1e6:.2f} MB/msg, {n} points x {step} B, frame {frame}, "
+              f"~{hz:.1f} Hz received -> {nbytes * 8 * hz / 1e6:.0f} Mbit/s; fields {fields}")
+    if selfhits is not None:
+        print(f"  Lidar points inside the robot's turning circle (0.55 m, 0.08-0.8 m high): "
+              f"{selfhits[0]}  e.g. {selfhits[1]}")
     tf_topics = sorted(t for t, ty in topics.items() if "tf2_msgs/msg/TFMessage" in ty)
     print("  TF topics: " + (", ".join(tf_topics) or "none"))
     for v in ("/robot/cmd_vel_user", "/robot/cmd_vel", "/robot/cmd_vel_joy", "/robot/cmd_vel_aut"):
