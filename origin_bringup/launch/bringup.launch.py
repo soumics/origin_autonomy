@@ -210,13 +210,14 @@ def launch_setup(context):
 
     actions = []
     if not sim:
+        # Network-wide discovery: the Zenoh bridge's DDS side (CycloneDDS) is not found by
+        # localhost-only participants. Our ROS_DOMAIN_ID differs from the robot's, so the
+        # robot's own DDS traffic stays separate; everything from the robot comes via Zenoh.
+        actions.append(SetEnvironmentVariable("ROS_AUTOMATIC_DISCOVERY_RANGE", "SUBNET"))
         if flag("zenoh_bridge"):
             cmd, env, _ = _bridge_cmd(arg("robot_ip"), arg("bridge_ros_distro"))
             actions.append(ExecuteProcess(cmd=cmd, additional_env={
                 "ROS_DISTRO": env["ROS_DISTRO"]}, output="log", name="zenoh_bridge"))
-        else:
-            # Direct DDS to the robot (no bridge): discovery over the network.
-            actions.append(SetEnvironmentVariable("ROS_AUTOMATIC_DISCOVERY_RANGE", "SUBNET"))
         actions.append(_include("origin_bringup", "robot_model.launch.py"))
     else:
         actions.append(_include(

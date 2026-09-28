@@ -56,6 +56,7 @@ RUN echo "deb [trusted=yes] https://download.eclipse.org/zenoh/debian-repo/ /" \
       > /etc/apt/sources.list.d/zenoh.list \
  && apt-get update \
  && DEBIAN_FRONTEND=noninteractive apt-get install -y zenoh-bridge-ros2dds=1.0.3 \
+      ros-jazzy-rmw-cyclonedds-cpp \
  && rm -rf /var/lib/apt/lists/*
 
 # Workspace: the two Avular forks and origin_autonomy, branch ros2-jazzy, from GitHub.

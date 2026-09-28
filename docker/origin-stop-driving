@@ -2,13 +2,15 @@
 # Stop autonomous driving: stop the explorer, send zero velocity, and return the Origin One's
 # cmd_vel_controller to NONE control mode (reset_control_mode).
 source /opt/origin_ws/entrypoint_env.sh
+export ROS_AUTOMATIC_DISCOVERY_RANGE=SUBNET
+ROBOT_RMW=rmw_cyclonedds_cpp  # service routes through the Zenoh bridge need CycloneDDS requests
 if ros2 service list | grep -qx /frontier_explorer/stop; then
   timeout 10 ros2 service call /frontier_explorer/stop std_srvs/srv/Trigger "{}" >/dev/null
 fi
 timeout 5 ros2 topic pub --times 5 --rate 10 /robot/cmd_vel_user geometry_msgs/msg/Twist "{}" >/dev/null
 SRV=/robot/cmd_vel_controller/reset_control_mode
-TYPE=$(timeout 10 ros2 service type "$SRV" 2>/dev/null)
-if [ -n "$TYPE" ] && timeout 20 ros2 service call "$SRV" "$TYPE" "{}"; then
+TYPE=$(RMW_IMPLEMENTATION=$ROBOT_RMW timeout 15 ros2 service type "$SRV" 2>/dev/null)
+if [ -n "$TYPE" ] && RMW_IMPLEMENTATION=$ROBOT_RMW timeout 30 ros2 service call "$SRV" "$TYPE" "{}"; then
   echo "Stopped; control mode reset."
 else
   echo "Zero velocity sent, but $SRV was not reachable: use the remote / e-stop." >&2
