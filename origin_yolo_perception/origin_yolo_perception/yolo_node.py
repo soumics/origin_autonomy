@@ -30,7 +30,7 @@ import rclpy
 from rclpy.node import Node
 from rclpy.qos import qos_profile_sensor_data
 from rclpy.time import Time
-from sensor_msgs.msg import CameraInfo, Image, PointCloud2
+from sensor_msgs.msg import CameraInfo, CompressedImage, Image, PointCloud2
 from std_msgs.msg import Int32, String
 import tf2_ros
 from vision_msgs.msg import Detection2D, Detection2DArray, ObjectHypothesisWithPose
@@ -126,7 +126,11 @@ class YoloPerception(Node):
         self.create_subscription(CameraInfo, "camera_info", self.on_info, qos_profile_sensor_data)
         self.create_subscription(Image, "depth", self.on_depth, qos_profile_sensor_data)
         self.create_subscription(PointCloud2, "cloud", self.on_cloud, qos_profile_sensor_data)
-        self.create_subscription(Image, "image", self.on_image, qos_profile_sensor_data)
+        if p("compressed", False).value:  # e.g. the robot's camera over Wi-Fi
+            self.create_subscription(CompressedImage, "image", self.on_compressed,
+                                     qos_profile_sensor_data)
+        else:
+            self.create_subscription(Image, "image", self.on_image, qos_profile_sensor_data)
         self.create_timer(5.0, self.log_stats)
 
         # Warm-up so the first real frame is not slow (CUDA context, kernels).
@@ -159,6 +163,15 @@ class YoloPerception(Node):
                         for k in ("x", "y", "z")], axis=1)
         pts = pts[np.isfinite(pts).all(axis=1)]
         self.cloud = (pts, msg.header.frame_id, Time.from_msg(msg.header.stamp))
+
+    def on_compressed(self, msg: CompressedImage):
+        import cv2
+        bgr = cv2.imdecode(np.frombuffer(msg.data, np.uint8), cv2.IMREAD_COLOR)
+        if bgr is None:
+            return
+        h, w = bgr.shape[:2]
+        self.on_image(Image(header=msg.header, height=h, width=w, encoding="bgr8",
+                            step=w * 3, data=bgr.tobytes()))
 
     def on_image(self, msg: Image):
         if self.busy:

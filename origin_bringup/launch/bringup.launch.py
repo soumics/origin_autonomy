@@ -245,11 +245,17 @@ def launch_setup(context):
             actions.append(ExecuteProcess(cmd=cmd, additional_env={
                 "ROS_DISTRO": env["ROS_DISTRO"]}, output="log", name="zenoh_bridge"))
         # The robot's sensor clocks are not this PC's clock: consume re-stamped copies.
-        restamped = {"lidar": "/origin/lidar/points", "image": "/origin/camera/color/image_raw",
+        # Camera over Wi-Fi: the compressed stream (JPEG, ~20x smaller than raw RGB) leaves the
+        # link to the lidar (seen: lidar 0.8 Hz with raw images).
+        restamped = {"lidar": "/origin/lidar/points",
+                     "image": "/origin/camera/color/image_raw/compressed",
                      "camera_info": "/origin/camera/color/camera_info"}
-        pairs = [f"{topics[k]}:{v}:{t}" for k, v, t in (
+        src = {k: (topics[k] if topics[k].startswith("/robot/") else SIM_TOPICS[k])
+               for k in ("lidar", "image", "camera_info")}
+        src["image"] = src["image"].rstrip("/") + "/compressed"
+        pairs = [f"{src[k]}:{v}:{t}" for k, v, t in (
             ("lidar", restamped["lidar"], "sensor_msgs/msg/PointCloud2"),
-            ("image", restamped["image"], "sensor_msgs/msg/Image"),
+            ("image", restamped["image"], "sensor_msgs/msg/CompressedImage"),
             ("camera_info", restamped["camera_info"], "sensor_msgs/msg/CameraInfo"))]
         topics.update(restamped)
         actions.append(_include("origin_bringup", "robot_model.launch.py",
@@ -283,6 +289,7 @@ def launch_setup(context):
 
     if flag("perception"):
         perception = {"use_sim_time": use_sim_time, "sim": "true" if sim else "false",
+                      "compressed": "false" if sim else "true",
                       "image_topic": topics["image"],
                       # On the robot, 3D positions come from the lidar; not subscribing to depth
                       # keeps it off the Wi-Fi link.
@@ -296,6 +303,7 @@ def launch_setup(context):
     if flag("rviz"):
         actions.append(TimerAction(period=delay / 2, actions=[Node(
             package="rviz2", executable="rviz2", name="rviz2", output="log",
+            respawn=True, respawn_delay=3.0,  # crashed once on the robot (std::system_error)
             arguments=["-d", _share("origin_bringup", "rviz", "bringup.rviz")],
             parameters=[{"use_sim_time": sim}])]))
     return actions

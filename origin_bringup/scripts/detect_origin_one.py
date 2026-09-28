@@ -27,12 +27,15 @@ import time
 import rclpy
 from rclpy.node import Node
 
-IGNORE = ("_filtered", "_viz", "/rtabmap/", "/perception/", "/local_costmap", "/global_costmap")
+IGNORE = ("_filtered", "_viz", "/rtabmap/", "/perception/", "/local_costmap", "/global_costmap",
+          "/origin/")  # /origin/...: our own re-stamped copies, never the robot's topics
 BUILTIN = ("/rosout", "/parameter_events")  # every participant has these
 
 
 def pick(candidates, prefer, avoid=()):
     cands = [c for c in candidates if not any(a in c for a in avoid)]
+    # The Origin One's interface lives under /robot: prefer it over anything else visible.
+    cands = sorted(cands, key=lambda c: (not c.startswith("/robot/"), c))
     for key in prefer:
         for c in cands:
             if key in c:

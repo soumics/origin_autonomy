@@ -32,6 +32,9 @@ class SensorRestamp(Node):
         self._keep = []
         for p in pairs:
             src, dst, typ = p.split(":")
+            if src == dst:
+                self.get_logger().error(f"Refusing to re-stamp {src} onto itself")
+                continue
             msg_type = get_message(typ)
             pub = self.create_publisher(msg_type, dst, qos_profile_sensor_data)
             self._keep.append(self.create_subscription(

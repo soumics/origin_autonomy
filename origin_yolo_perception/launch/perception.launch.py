@@ -28,6 +28,7 @@ def launch_setup(context):
     optical = "camera_color_optical_frame" if sim else ""
     overrides = {
         "use_sim_time": use_sim_time,
+        "compressed": LaunchConfiguration("compressed").perform(context).lower() in ("true", "1"),
         "optical_frame": optical,
         "tracker": os.path.join(pkg, "config", "bytetrack_origin.yaml"),
     }
@@ -47,6 +48,8 @@ def generate_launch_description():
         DeclareLaunchArgument("sim", default_value="true"),
         DeclareLaunchArgument("use_sim_time", default_value="false"),
         DeclareLaunchArgument("image_topic", default_value="/robot/camera/color/image_raw"),
+        DeclareLaunchArgument("compressed", default_value="false",
+                              description="image_topic is sensor_msgs/CompressedImage (JPEG)"),
         DeclareLaunchArgument("depth_topic", default_value="/robot/camera/depth/image_raw"),
         DeclareLaunchArgument("camera_info_topic", default_value="/robot/camera/color/camera_info"),
         DeclareLaunchArgument("cloud_topic", default_value="/robot/lidar/points"),
