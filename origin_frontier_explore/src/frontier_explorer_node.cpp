@@ -12,6 +12,9 @@
 // - Goals that fail, or where the robot makes no progress, are blacklisted.
 // - When no frontiers remain, the robot optionally drives back to its start pose (which also
 //   gives SLAM a loop closure) and exploration stops.
+// - Look-around: the lidar sees 360 deg but the camera only ~60 deg ahead, so the robot spins
+//   once in place at the start and after every `look_around_distance` metres travelled
+//   (0 disables), letting the camera (YOLO perception) sweep every area it explores.
 // Status is published on ~/status; frontiers are visualized on ~/frontiers.
 
 #include <chrono>
@@ -22,6 +25,7 @@
 #include <vector>
 
 #include "geometry_msgs/msg/pose_stamped.hpp"
+#include "geometry_msgs/msg/twist.hpp"
 #include "nav2_msgs/action/navigate_to_pose.hpp"
 #include "nav_msgs/msg/occupancy_grid.hpp"
 #include "rclcpp/rclcpp.hpp"
@@ -30,6 +34,7 @@
 #include "std_srvs/srv/trigger.hpp"
 #include "tf2/LinearMath/Quaternion.h"
 #include "tf2/exceptions.h"
+#include "tf2/utils.h"
 #include "tf2_geometry_msgs/tf2_geometry_msgs.hpp"
 #include "tf2_ros/buffer.h"
 #include "tf2_ros/transform_listener.h"
@@ -46,7 +51,7 @@ using ClientGoalHandle = rclcpp_action::ClientGoalHandle<NavigateToPose>;
 class FrontierExplorer : public rclcpp::Node
 {
 public:
-  enum class State { kWaiting, kExploring, kReturning, kDone, kStopped };
+  enum class State { kWaiting, kExploring, kReturning, kDone, kStopped, kLookingAround };
 
   explicit FrontierExplorer(const rclcpp::NodeOptions & options)
   : Node("frontier_explorer", options)
@@ -61,6 +66,8 @@ public:
     progress_distance_ = declare_parameter("progress_distance", 0.3);
     empty_checks_to_finish_ = declare_parameter("empty_checks_to_finish", 3);
     return_to_start_ = declare_parameter("return_to_start", true);
+    look_around_distance_ = declare_parameter("look_around_distance", 4.0);
+    look_around_speed_ = declare_parameter("look_around_speed", 0.6);
     const bool autostart = declare_parameter("autostart", true);
 
     params_.occupied_threshold = declare_parameter("occupied_threshold", 65);
@@ -72,6 +79,7 @@ public:
     tf_buffer_ = std::make_unique<tf2_ros::Buffer>(get_clock());
     tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
     client_ = rclcpp_action::create_client<NavigateToPose>(this, action_name_);
+    cmd_pub_ = create_publisher<geometry_msgs::msg::Twist>("cmd_vel", 10);
     marker_pub_ = create_publisher<visualization_msgs::msg::MarkerArray>("~/frontiers", 1);
     status_pub_ = create_publisher<std_msgs::msg::String>(
       "~/status", rclcpp::QoS(1).transient_local());
@@ -84,6 +92,7 @@ public:
       std_srvs::srv::Trigger::Response::SharedPtr res) {
         blacklist_.clear();
         have_start_pose_ = false;
+        have_spin_ref_ = false;
         setState(State::kWaiting);
         res->success = true;
       });
@@ -91,6 +100,9 @@ public:
       "~/stop", [this](std_srvs::srv::Trigger::Request::SharedPtr,
       std_srvs::srv::Trigger::Response::SharedPtr res) {
         cancelGoal();
+        if (state_ == State::kLookingAround) {
+          cmd_pub_->publish(geometry_msgs::msg::Twist());
+        }
         setState(State::kStopped);
         res->success = true;
       });
@@ -98,6 +110,7 @@ public:
     setState(autostart ? State::kWaiting : State::kStopped);
     timer_ = create_wall_timer(
       std::chrono::duration<double>(update_period_), [this]() {update();});
+    spin_timer_ = create_wall_timer(std::chrono::milliseconds(100), [this]() {lookAroundStep();});
   }
 
 private:
@@ -127,8 +140,18 @@ private:
       }
       setState(State::kExploring);
     }
-    if (state_ == State::kReturning) {
-      return;  // wait for the return goal's result
+    if (state_ == State::kReturning || state_ == State::kLookingAround) {
+      return;  // wait for the return goal's result / the spin to finish
+    }
+    if (look_around_distance_ > 0.0) {
+      if (!have_spin_ref_) {
+        startLookAround(rx, ry);  // at the start
+        return;
+      }
+      if (std::hypot(rx - spin_ref_x_, ry - spin_ref_y_) >= look_around_distance_) {
+        startLookAround(rx, ry);
+        return;
+      }
     }
 
     Grid grid;
@@ -214,6 +237,56 @@ private:
       sendGoal(start_x_, start_y_, rx, ry);
     } else {
       setState(State::kDone);
+    }
+  }
+
+  // ---------------------------------------------------------------- look-around
+  void startLookAround(double rx, double ry)
+  {
+    cancelGoal();
+    have_spin_ref_ = true;
+    spin_ref_x_ = rx;
+    spin_ref_y_ = ry;
+    double yaw;
+    if (!robotYaw(yaw)) {
+      return;
+    }
+    spin_last_yaw_ = yaw;
+    spin_turned_ = 0.0;
+    spin_start_ = now();
+    setState(State::kLookingAround);
+  }
+
+  void lookAroundStep()
+  {
+    if (state_ != State::kLookingAround) {
+      return;
+    }
+    double yaw;
+    if (!robotYaw(yaw)) {
+      return;
+    }
+    spin_turned_ += std::fabs(std::atan2(std::sin(yaw - spin_last_yaw_), std::cos(yaw - spin_last_yaw_)));
+    spin_last_yaw_ = yaw;
+    geometry_msgs::msg::Twist cmd;
+    const double timeout = 2.0 * 2.0 * M_PI / look_around_speed_;
+    if (spin_turned_ < 2.0 * M_PI && (now() - spin_start_).seconds() < timeout) {
+      cmd.angular.z = look_around_speed_;
+      cmd_pub_->publish(cmd);
+      return;
+    }
+    cmd_pub_->publish(cmd);  // stop
+    setState(State::kExploring);
+  }
+
+  bool robotYaw(double & yaw)
+  {
+    try {
+      const auto t = tf_buffer_->lookupTransform(global_frame_, robot_frame_, tf2::TimePointZero);
+      yaw = tf2::getYaw(t.transform.rotation);
+      return true;
+    } catch (const tf2::TransformException &) {
+      return false;
     }
   }
 
@@ -311,7 +384,8 @@ private:
   void setState(State s)
   {
     state_ = s;
-    static const char * names[] = {"waiting", "exploring", "returning", "done", "stopped"};
+    static const char * names[] = {
+      "waiting", "exploring", "returning", "done", "stopped", "looking_around"};
     std_msgs::msg::String msg;
     msg.data = names[static_cast<int>(s)];
     status_pub_->publish(msg);
@@ -372,6 +446,12 @@ private:
   double progress_timeout_, progress_distance_;
   int empty_checks_to_finish_;
   bool return_to_start_;
+  double look_around_distance_, look_around_speed_;
+  bool have_spin_ref_{false};
+  double spin_ref_x_{0}, spin_ref_y_{0}, spin_last_yaw_{0}, spin_turned_{0};
+  rclcpp::Time spin_start_;
+  rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr cmd_pub_;
+  rclcpp::TimerBase::SharedPtr spin_timer_;
   FrontierSearchParams params_;
 
   State state_{State::kWaiting};

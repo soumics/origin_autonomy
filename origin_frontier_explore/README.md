@@ -55,6 +55,9 @@ Services: `/frontier_explorer/start` and `/frontier_explorer/stop` (`std_srvs/Tr
 - Goals that fail, or where the robot moves less than 0.3 m in 30 s, are blacklisted.
 - A goal rejected by a server that is not yet active is simply retried.
 - After 3 empty checks it returns to the start pose and stops.
+- **Look-around:** the lidar sees 360° but the camera only about 60° ahead, so the robot spins
+  once in place at the start and after every 4 m travelled (`look_around_distance`, 0 = off).
+  This lets YOLO perception see every area that exploration covers.
 
 **Custom navigator** (`custom_navigator_node.cpp`)
 - **Global plan:** A* on `/map`, replanned every second. Cells within 0.40 m of an obstacle are

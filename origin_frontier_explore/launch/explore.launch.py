@@ -57,7 +57,7 @@ def generate_launch_description():
             name="frontier_explorer", output="screen",
             parameters=[os.path.join(pkg, "config", "explorer.yaml"),
                         {"use_sim_time": use_sim_time}],
-            remappings=[("map", "/map")],
+            remappings=[("map", "/map"), ("cmd_vel", "/robot/cmd_vel")],
         ),
         Node(
             package="rviz2", executable="rviz2",
