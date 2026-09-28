@@ -7,6 +7,7 @@
 
 Reuses origin_one_gazebo's origin_sim_common.launch.py (robot spawn, ros_gz bridge,
 robot_state_publisher); only the world file and spawn pose come from this package.
+With the GUI, lidar_ray_markers.py draws the Ouster beams in Gazebo (lidar_rays:=false to hide).
 """
 
 import os
@@ -14,8 +15,10 @@ import os
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
+from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
-from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
+from launch.substitutions import LaunchConfiguration, PathJoinSubstitution, PythonExpression
+from launch_ros.actions import Node
 
 
 def generate_launch_description():
@@ -27,6 +30,8 @@ def generate_launch_description():
         DeclareLaunchArgument("world", default_value="origin_office.sdf",
                               description="World file in origin_bringup/worlds"),
         DeclareLaunchArgument("headless", default_value="false"),
+        DeclareLaunchArgument("lidar_rays", default_value="true",
+                              description="Draw the Ouster beams in the Gazebo GUI"),
         DeclareLaunchArgument("rviz", default_value="false",
                               description="Open origin_one_gazebo's sensor RViz config"),
         DeclareLaunchArgument("drive_configuration", default_value="skid_steer_drive"),
@@ -49,4 +54,12 @@ def generate_launch_description():
         }.items(),
     )
 
-    return LaunchDescription(args + [sim])
+    rays = Node(
+        package="origin_bringup", executable="lidar_ray_markers.py", name="lidar_ray_markers",
+        output="screen",
+        condition=IfCondition(PythonExpression([
+            "'", LaunchConfiguration("lidar_rays"), "'.lower() == 'true' and '",
+            LaunchConfiguration("headless"), "'.lower() != 'true'"])),
+    )
+
+    return LaunchDescription(args + [sim, rays])

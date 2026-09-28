@@ -1,0 +1,353 @@
+<?xml version="1.0"?>
+<!--
+  origin_office_people: the origin_office floor plan plus moving and standing people, chairs
+  and other objects from YOLO's COCO classes, for perception tests. Identical objects
+  (3 walking people, 5 office chairs, 2 dining chairs) must be counted separately.
+  Ground truth: person 6 (3 walking), chair 7, couch 1, refrigerator 1, dining table 1.
+  The plain boxes of origin_office are left out (YOLO mistakes them for tables/fridges).
+  Models are downloaded from Gazebo Fuel on first use.
+
+  Base world: small enclosed indoor world for testing mapping, localization and
+  frontier exploration with the Avular Origin One (Gazebo Harmonic).
+
+  20 x 14 m floor, 2.5 m walls, five rooms joined by 1.5 m doorways. Obstacles of
+  different heights (pillars, cabinet, shelf, crate, bench, a 0.25 m box and a table
+  that is open underneath) exercise 3D mapping. Uses no Fuel models, so it
+  loads offline. Suggested spawn: (0, 0), yaw 0, in the central hall.
+-->
+<sdf version="1.9">
+  <world name="origin_office_people">
+    <spherical_coordinates>
+      <surface_model>EARTH_WGS84</surface_model>
+      <world_frame_orientation>ENU</world_frame_orientation>
+      <latitude_deg>51.453423125136865</latitude_deg>
+      <longitude_deg>5.448826930660351</longitude_deg>
+      <elevation>0</elevation>
+      <heading_deg>0</heading_deg>
+    </spherical_coordinates>
+
+    <physics name="1ms" type="ignored">
+      <max_step_size>0.01</max_step_size>
+      <real_time_factor>1.0</real_time_factor>
+    </physics>
+    <plugin filename="gz-sim-physics-system" name="gz::sim::systems::Physics"/>
+    <plugin filename="gz-sim-scene-broadcaster-system" name="gz::sim::systems::SceneBroadcaster"/>
+    <plugin filename="gz-sim-user-commands-system" name="gz::sim::systems::UserCommands"/>
+
+    <scene>
+      <ambient>0.6 0.6 0.6 1</ambient>
+      <background>0.8 0.85 0.9 1</background>
+      <shadows>false</shadows>
+    </scene>
+
+    <light type="directional" name="sun">
+      <cast_shadows>false</cast_shadows>
+      <pose>0 0 10 0 0 0</pose>
+      <diffuse>0.9 0.9 0.9 1</diffuse>
+      <specular>0.2 0.2 0.2 1</specular>
+      <direction>-0.3 0.2 -0.9</direction>
+    </light>
+
+    <model name="ground_plane">
+      <static>true</static>
+      <link name="link">
+        <collision name="c"><geometry><plane><normal>0 0 1</normal><size>40 30</size></plane></geometry>
+          <surface><friction><ode><mu>1</mu><mu2>1</mu2></ode></friction></surface></collision>
+        <visual name="v"><geometry><plane><normal>0 0 1</normal><size>40 30</size></plane></geometry>
+          <material><ambient>0.45 0.45 0.45 1</ambient><diffuse>0.45 0.45 0.45 1</diffuse></material></visual>
+      </link>
+    </model>
+
+    <model name="wall_00">
+      <static>true</static>
+      <pose>0.0 -7 1.25 0 0 0</pose>
+      <link name="link">
+        <collision name="c"><geometry><box><size>20.2 0.2 2.5</size></box></geometry></collision>
+        <visual name="v"><geometry><box><size>20.2 0.2 2.5</size></box></geometry>
+          <material><ambient>0.75 0.75 0.72 1</ambient><diffuse>0.75 0.75 0.72 1</diffuse></material></visual>
+      </link>
+    </model>
+    <model name="wall_01">
+      <static>true</static>
+      <pose>0.0 7 1.25 0 0 0</pose>
+      <link name="link">
+        <collision name="c"><geometry><box><size>20.2 0.2 2.5</size></box></geometry></collision>
+        <visual name="v"><geometry><box><size>20.2 0.2 2.5</size></box></geometry>
+          <material><ambient>0.75 0.75 0.72 1</ambient><diffuse>0.75 0.75 0.72 1</diffuse></material></visual>
+      </link>
+    </model>
+    <model name="wall_02">
+      <static>true</static>
+      <pose>-10 0.0 1.25 0 0 0</pose>
+      <link name="link">
+        <collision name="c"><geometry><box><size>0.2 14.2 2.5</size></box></geometry></collision>
+        <visual name="v"><geometry><box><size>0.2 14.2 2.5</size></box></geometry>
+          <material><ambient>0.75 0.75 0.72 1</ambient><diffuse>0.75 0.75 0.72 1</diffuse></material></visual>
+      </link>
+    </model>
+    <model name="wall_03">
+      <static>true</static>
+      <pose>10 0.0 1.25 0 0 0</pose>
+      <link name="link">
+        <collision name="c"><geometry><box><size>0.2 14.2 2.5</size></box></geometry></collision>
+        <visual name="v"><geometry><box><size>0.2 14.2 2.5</size></box></geometry>
+          <material><ambient>0.75 0.75 0.72 1</ambient><diffuse>0.75 0.75 0.72 1</diffuse></material></visual>
+      </link>
+    </model>
+    <model name="wall_04">
+      <static>true</static>
+      <pose>-3 -5.75 1.25 0 0 0</pose>
+      <link name="link">
+        <collision name="c"><geometry><box><size>0.2 2.7 2.5</size></box></geometry></collision>
+        <visual name="v"><geometry><box><size>0.2 2.7 2.5</size></box></geometry>
+          <material><ambient>0.75 0.75 0.72 1</ambient><diffuse>0.75 0.75 0.72 1</diffuse></material></visual>
+      </link>
+    </model>
+    <model name="wall_05">
+      <static>true</static>
+      <pose>-3 0.0 1.25 0 0 0</pose>
+      <link name="link">
+        <collision name="c"><geometry><box><size>0.2 6.2 2.5</size></box></geometry></collision>
+        <visual name="v"><geometry><box><size>0.2 6.2 2.5</size></box></geometry>
+          <material><ambient>0.75 0.75 0.72 1</ambient><diffuse>0.75 0.75 0.72 1</diffuse></material></visual>
+      </link>
+    </model>
+    <model name="wall_06">
+      <static>true</static>
+      <pose>-3 5.75 1.25 0 0 0</pose>
+      <link name="link">
+        <collision name="c"><geometry><box><size>0.2 2.7 2.5</size></box></geometry></collision>
+        <visual name="v"><geometry><box><size>0.2 2.7 2.5</size></box></geometry>
+          <material><ambient>0.75 0.75 0.72 1</ambient><diffuse>0.75 0.75 0.72 1</diffuse></material></visual>
+      </link>
+    </model>
+    <model name="wall_07">
+      <static>true</static>
+      <pose>4 -4.0 1.25 0 0 0</pose>
+      <link name="link">
+        <collision name="c"><geometry><box><size>0.2 6.2 2.5</size></box></geometry></collision>
+        <visual name="v"><geometry><box><size>0.2 6.2 2.5</size></box></geometry>
+          <material><ambient>0.75 0.75 0.72 1</ambient><diffuse>0.75 0.75 0.72 1</diffuse></material></visual>
+      </link>
+    </model>
+    <model name="wall_08">
+      <static>true</static>
+      <pose>4 2.5 1.25 0 0 0</pose>
+      <link name="link">
+        <collision name="c"><geometry><box><size>0.2 4.2 2.5</size></box></geometry></collision>
+        <visual name="v"><geometry><box><size>0.2 4.2 2.5</size></box></geometry>
+          <material><ambient>0.75 0.75 0.72 1</ambient><diffuse>0.75 0.75 0.72 1</diffuse></material></visual>
+      </link>
+    </model>
+    <model name="wall_09">
+      <static>true</static>
+      <pose>4 6.5 1.25 0 0 0</pose>
+      <link name="link">
+        <collision name="c"><geometry><box><size>0.2 1.2 2.5</size></box></geometry></collision>
+        <visual name="v"><geometry><box><size>0.2 1.2 2.5</size></box></geometry>
+          <material><ambient>0.75 0.75 0.72 1</ambient><diffuse>0.75 0.75 0.72 1</diffuse></material></visual>
+      </link>
+    </model>
+    <model name="wall_10">
+      <static>true</static>
+      <pose>-8.75 1 1.25 0 0 0</pose>
+      <link name="link">
+        <collision name="c"><geometry><box><size>2.7 0.2 2.5</size></box></geometry></collision>
+        <visual name="v"><geometry><box><size>2.7 0.2 2.5</size></box></geometry>
+          <material><ambient>0.75 0.75 0.72 1</ambient><diffuse>0.75 0.75 0.72 1</diffuse></material></visual>
+      </link>
+    </model>
+    <model name="wall_11">
+      <static>true</static>
+      <pose>-4.5 1 1.25 0 0 0</pose>
+      <link name="link">
+        <collision name="c"><geometry><box><size>3.2 0.2 2.5</size></box></geometry></collision>
+        <visual name="v"><geometry><box><size>3.2 0.2 2.5</size></box></geometry>
+          <material><ambient>0.75 0.75 0.72 1</ambient><diffuse>0.75 0.75 0.72 1</diffuse></material></visual>
+      </link>
+    </model>
+    <model name="wall_12">
+      <static>true</static>
+      <pose>5.25 -2 1.25 0 0 0</pose>
+      <link name="link">
+        <collision name="c"><geometry><box><size>2.7 0.2 2.5</size></box></geometry></collision>
+        <visual name="v"><geometry><box><size>2.7 0.2 2.5</size></box></geometry>
+          <material><ambient>0.75 0.75 0.72 1</ambient><diffuse>0.75 0.75 0.72 1</diffuse></material></visual>
+      </link>
+    </model>
+    <model name="wall_13">
+      <static>true</static>
+      <pose>9.0 -2 1.25 0 0 0</pose>
+      <link name="link">
+        <collision name="c"><geometry><box><size>2.2 0.2 2.5</size></box></geometry></collision>
+        <visual name="v"><geometry><box><size>2.2 0.2 2.5</size></box></geometry>
+          <material><ambient>0.75 0.75 0.72 1</ambient><diffuse>0.75 0.75 0.72 1</diffuse></material></visual>
+      </link>
+    </model>
+    <model name="pillar_n">
+      <static>true</static>
+      <pose>0 3 1.25 0 0 0</pose>
+      <link name="link">
+        <collision name="c"><geometry><cylinder><radius>0.25</radius><length>2.5</length></cylinder></geometry></collision>
+        <visual name="v"><geometry><cylinder><radius>0.25</radius><length>2.5</length></cylinder></geometry>
+          <material><ambient>0.5 0.5 0.55 1</ambient><diffuse>0.5 0.5 0.55 1</diffuse></material></visual>
+      </link>
+    </model>
+    <model name="pillar_s">
+      <static>true</static>
+      <pose>0 -3 1.25 0 0 0</pose>
+      <link name="link">
+        <collision name="c"><geometry><cylinder><radius>0.25</radius><length>2.5</length></cylinder></geometry></collision>
+        <visual name="v"><geometry><cylinder><radius>0.25</radius><length>2.5</length></cylinder></geometry>
+          <material><ambient>0.5 0.5 0.55 1</ambient><diffuse>0.5 0.5 0.55 1</diffuse></material></visual>
+      </link>
+    </model>
+    <!-- ===== perception test objects ===== -->
+    <actor name="walker_hall_loop">
+      <skin><filename>https://fuel.gazebosim.org/1.0/Mingfei/models/actor/1/files/meshes/walk.dae</filename><scale>1.0</scale></skin>
+      <animation name="walking">
+        <filename>https://fuel.gazebosim.org/1.0/Mingfei/models/actor/1/files/meshes/walk.dae</filename>
+        <scale>1.0</scale>
+        <interpolate_x>true</interpolate_x>
+      </animation>
+      <script>
+        <loop>true</loop>
+        <delay_start>0</delay_start>
+        <auto_start>true</auto_start>
+        <trajectory id="0" type="walking">
+          <waypoint><time>0.00</time><pose>-2.0 -1.8 1.0 0 0 0.0000</pose></waypoint>
+          <waypoint><time>6.86</time><pose>2.8 -1.8 1.0 0 0 0.0000</pose></waypoint>
+          <waypoint><time>7.86</time><pose>2.8 -1.8 1.0 0 0 1.5708</pose></waypoint>
+          <waypoint><time>13.00</time><pose>2.8 1.8 1.0 0 0 1.5708</pose></waypoint>
+          <waypoint><time>14.00</time><pose>2.8 1.8 1.0 0 0 3.1416</pose></waypoint>
+          <waypoint><time>20.86</time><pose>-2.0 1.8 1.0 0 0 3.1416</pose></waypoint>
+          <waypoint><time>21.86</time><pose>-2.0 1.8 1.0 0 0 -1.5708</pose></waypoint>
+          <waypoint><time>27.00</time><pose>-2.0 -1.8 1.0 0 0 -1.5708</pose></waypoint>
+          <waypoint><time>28.00</time><pose>-2.0 -1.8 1.0 0 0 0.0000</pose></waypoint>
+        </trajectory>
+      </script>
+    </actor>
+    <actor name="walker_hall_north">
+      <skin><filename>https://fuel.gazebosim.org/1.0/Mingfei/models/actor/1/files/meshes/walk.dae</filename><scale>1.0</scale></skin>
+      <animation name="walking">
+        <filename>https://fuel.gazebosim.org/1.0/Mingfei/models/actor/1/files/meshes/walk.dae</filename>
+        <scale>1.0</scale>
+        <interpolate_x>true</interpolate_x>
+      </animation>
+      <script>
+        <loop>true</loop>
+        <delay_start>0</delay_start>
+        <auto_start>true</auto_start>
+        <trajectory id="0" type="walking">
+          <waypoint><time>0.00</time><pose>-2.2 4.5 1.0 0 0 0.0000</pose></waypoint>
+          <waypoint><time>7.43</time><pose>3.0 4.5 1.0 0 0 0.0000</pose></waypoint>
+          <waypoint><time>8.43</time><pose>3.0 4.5 1.0 0 0 3.1416</pose></waypoint>
+          <waypoint><time>15.86</time><pose>-2.2 4.5 1.0 0 0 3.1416</pose></waypoint>
+          <waypoint><time>16.86</time><pose>-2.2 4.5 1.0 0 0 0.0000</pose></waypoint>
+        </trajectory>
+      </script>
+    </actor>
+    <actor name="walker_east_room">
+      <skin><filename>https://fuel.gazebosim.org/1.0/Mingfei/models/actor/1/files/meshes/walk.dae</filename><scale>1.0</scale></skin>
+      <animation name="walking">
+        <filename>https://fuel.gazebosim.org/1.0/Mingfei/models/actor/1/files/meshes/walk.dae</filename>
+        <scale>1.0</scale>
+        <interpolate_x>true</interpolate_x>
+      </animation>
+      <script>
+        <loop>true</loop>
+        <delay_start>0</delay_start>
+        <auto_start>true</auto_start>
+        <trajectory id="0" type="walking">
+          <waypoint><time>0.00</time><pose>5.2 2.2 1.0 0 0 0.0000</pose></waypoint>
+          <waypoint><time>6.33</time><pose>9.0 2.2 1.0 0 0 0.0000</pose></waypoint>
+          <waypoint><time>7.33</time><pose>9.0 2.2 1.0 0 0 1.5708</pose></waypoint>
+          <waypoint><time>13.67</time><pose>9.0 6.0 1.0 0 0 1.5708</pose></waypoint>
+          <waypoint><time>14.67</time><pose>9.0 6.0 1.0 0 0 3.1416</pose></waypoint>
+          <waypoint><time>21.00</time><pose>5.2 6.0 1.0 0 0 3.1416</pose></waypoint>
+          <waypoint><time>22.00</time><pose>5.2 6.0 1.0 0 0 -1.5708</pose></waypoint>
+          <waypoint><time>28.33</time><pose>5.2 2.2 1.0 0 0 -1.5708</pose></waypoint>
+          <waypoint><time>29.33</time><pose>5.2 2.2 1.0 0 0 0.0000</pose></waypoint>
+        </trajectory>
+      </script>
+    </actor>
+    <include>
+      <name>person_standing_sw</name>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Standing person</uri>
+      <pose>-5.0 -5.6 0 0 0 1.5708</pose>
+      <static>true</static>
+    </include>
+    <include>
+      <name>person_casual_ne</name>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Casual female</uri>
+      <pose>9.2 -0.8 0 0 0 3.1416</pose>
+      <static>true</static>
+    </include>
+    <include>
+      <name>person_visitor_se</name>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Male visitor</uri>
+      <pose>9.0 -3.2 0 0 0 3.1416</pose>
+      <static>true</static>
+    </include>
+    <include>
+      <name>office_chair_hall_1</name>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/OfficeChairBlack</uri>
+      <pose>-1.6 -6.2 0 0 0 1.5708</pose>
+      <static>true</static>
+    </include>
+    <include>
+      <name>office_chair_hall_2</name>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/OfficeChairBlack</uri>
+      <pose>-0.6 -6.2 0 0 0 1.5708</pose>
+      <static>true</static>
+    </include>
+    <include>
+      <name>office_chair_hall_3</name>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/OfficeChairBlack</uri>
+      <pose>0.4 -6.2 0 0 0 1.5708</pose>
+      <static>true</static>
+    </include>
+    <include>
+      <name>office_chair_se_1</name>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/OfficeChairBlack</uri>
+      <pose>5.0 -6.2 0 0 0 1.5708</pose>
+      <static>true</static>
+    </include>
+    <include>
+      <name>office_chair_se_2</name>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/OfficeChairBlack</uri>
+      <pose>5.9 -6.2 0 0 0 1.5708</pose>
+      <static>true</static>
+    </include>
+    <include>
+      <name>dining_chair_nw_1</name>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Dining Chair</uri>
+      <pose>-7.35 3.65 0 0 0 1.5708</pose>
+      <static>true</static>
+    </include>
+    <include>
+      <name>dining_chair_nw_2</name>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Dining Chair</uri>
+      <pose>-6.55 3.65 0 0 0 1.5708</pose>
+      <static>true</static>
+    </include>
+    <include>
+      <name>dining_table_nw</name>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Dining Table</uri>
+      <pose>-6.95 4.55 0 0 0 0.0000</pose>
+      <static>true</static>
+    </include>
+    <include>
+      <name>sofa_nw</name>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Sofa</uri>
+      <pose>-9.3 5.4 0 0 0 0.0000</pose>
+      <static>true</static>
+    </include>
+    <include>
+      <name>refrigerator_sw</name>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Refrigerator</uri>
+      <pose>-9.45 -6.4 0 0 0 0.0000</pose>
+      <static>true</static>
+    </include>
+  </world>
+</sdf>
