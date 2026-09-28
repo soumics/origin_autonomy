@@ -20,5 +20,6 @@
     max_lidar_range: 20.0      # 3D positions come from the Ouster points inside each box
     fixed_frame: odom          # lidar scan and camera image are synchronised through odom
     line_position: 0.5
+    line_classes: [person]     # static objects sweep across the line when the robot turns
     association_radius: 0.8
     moving_classes: [person]

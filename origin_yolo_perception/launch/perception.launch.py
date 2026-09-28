@@ -4,9 +4,10 @@
 
     ros2 launch origin_yolo_perception perception.launch.py use_sim_time:=true sim:=true
 
-sim:=true: Gazebo camera topics (/robot/camera/...) and optical frame override
-(the simulated images are stamped camera_link). sim:=false: RealSense driver topics
-(/camera/camera/...), whose images are already in the optical frame.
+Topics follow the Origin One's /robot/... names (the Avular simulation mirrors the real robot).
+sim:=true adds the optical frame override (the simulated images are stamped camera_link);
+on the robot the RealSense images are already in the optical frame. If the robot's driver uses
+other names, remap image / depth / camera_info / cloud.
 """
 
 import os
@@ -22,17 +23,10 @@ def launch_setup(context):
     pkg = get_package_share_directory("origin_yolo_perception")
     sim = LaunchConfiguration("sim").perform(context).lower() in ("true", "1")
     use_sim_time = LaunchConfiguration("use_sim_time").perform(context).lower() in ("true", "1")
-    if sim:
-        cam = "/robot/camera"
-        topics = {"image": f"{cam}/color/image_raw", "depth": f"{cam}/depth/image_raw",
-                  "camera_info": f"{cam}/color/camera_info", "cloud": "/robot/lidar/points"}
-        optical = "camera_color_optical_frame"
-    else:
-        cam = "/camera/camera"
-        topics = {"image": f"{cam}/color/image_raw",
-                  "depth": f"{cam}/aligned_depth_to_color/image_raw",
-                  "camera_info": f"{cam}/color/camera_info", "cloud": "/ouster/points"}
-        optical = ""
+    cam = "/robot/camera"
+    topics = {"image": f"{cam}/color/image_raw", "depth": f"{cam}/depth/image_raw",
+              "camera_info": f"{cam}/color/camera_info", "cloud": "/robot/lidar/points"}
+    optical = "camera_color_optical_frame" if sim else ""
     overrides = {
         "use_sim_time": use_sim_time,
         "optical_frame": optical,

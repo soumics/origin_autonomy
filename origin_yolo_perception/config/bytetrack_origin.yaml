@@ -1,10 +1,9 @@
-# ByteTrack for the Origin One camera. Ultralytics defaults, except track_buffer: at the
-# simulated 6 fps (real RealSense: up to 30 fps) the default 30 frames keep a lost track for
-# only 5 s; 60 frames bridge short occlusions (people walking behind pillars) without new IDs.
+# ByteTrack for the Origin One camera. Ultralytics defaults, except track_buffer: 90 frames
+# (6 s at the simulated 15 fps) bridge occlusions (people walking behind pillars) without new IDs.
 tracker_type: bytetrack
 track_high_thresh: 0.25
 track_low_thresh: 0.1
 new_track_thresh: 0.25
-track_buffer: 60
+track_buffer: 90
 match_thresh: 0.8
 fuse_score: True

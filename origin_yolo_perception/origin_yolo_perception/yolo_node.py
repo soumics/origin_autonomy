@@ -70,6 +70,9 @@ class YoloPerception(Node):
         self.max_lidar_range = p("max_lidar_range", 20.0).value
         self.fixed_frame = p("fixed_frame", "odom").value  # for lidar/camera time sync
         line_pos = p("line_position", 0.5).value        # fraction of the image width
+        # Classes counted at the line. With a moving robot, static objects sweep across the
+        # image too, so by default only people (who move themselves) are counted crossing.
+        self.line_classes = set(c for c in p("line_classes", ["person"]).value if c)
         assoc_radius = p("association_radius", 0.8).value
         moving = p("moving_classes", ["person"]).value
 
@@ -113,7 +116,7 @@ class YoloPerception(Node):
         self.tf_buffer = tf2_ros.Buffer()
         self.tf_listener = tf2_ros.TransformListener(self.tf_buffer, self)
 
-        self.pub_img = self.create_publisher(Image, "annotated_image", 2)
+        self.pub_img = self.create_publisher(Image, "annotated_image", qos_profile_sensor_data)
         self.pub_det = self.create_publisher(Detection2DArray, "detections", 10)
         self.pub_count = self.create_publisher(Int32, "count", 10)
         self.pub_line = self.create_publisher(Int32, "line_count", 10)
@@ -224,7 +227,8 @@ class YoloPerception(Node):
                 if self.hits[tid] < self.min_hits or not counted or not confident:
                     continue
                 self.unique_tracks.setdefault(name, set()).add(tid)
-                self.line.update(tid, name, (x1 + x2) / 2)
+                if not self.line_classes or name in self.line_classes:
+                    self.line.update(tid, name, (x1 + x2) / 2)
                 p = positions[k]
                 if p is not None:
                     observations.append((tid, name, *p))
@@ -328,25 +332,28 @@ class YoloPerception(Node):
 
     def publish_image(self, res, msg, bgr):
         import cv2
-        out = res.plot(img=bgr, line_width=2, font_size=12)
+        out = res.plot(img=bgr, line_width=2, font_size=14)
         h, w = out.shape[:2]
         lx = int(self.line.line_x)
-        cv2.line(out, (lx, 0), (lx, h), (0, 255, 255), 1)
-        reg = self.registry.counts()
-        text = "  ".join(f"{k}:{v}" for k, v in sorted(reg.items())) or "no objects yet"
-        cv2.rectangle(out, (0, h - 44), (w, h), (0, 0, 0), -1)
-        cv2.putText(out, f"unique objects  {text}", (6, h - 26), cv2.FONT_HERSHEY_SIMPLEX,
-                    0.45, (255, 255, 255), 1, cv2.LINE_AA)
-        cv2.putText(out, f"line crossings  L->R {self.line.left_to_right}  "
-                    f"R->L {self.line.right_to_left}", (6, h - 8), cv2.FONT_HERSHEY_SIMPLEX,
-                    0.45, (0, 255, 255), 1, cv2.LINE_AA)
+        cv2.line(out, (lx, 0), (lx, h), (0, 255, 255), 2)
         if res.boxes is not None and res.boxes.id is not None:
-            for (x1, y1, _, _), tid in zip(res.boxes.xyxy.cpu().numpy(),
+            for (x1, _, _, y2), tid in zip(res.boxes.xyxy.cpu().numpy(),
                                            res.boxes.id.cpu().numpy().astype(int)):
                 oid = self.track_object.get(int(tid))
                 if oid is not None:
-                    cv2.putText(out, f"obj {oid}", (int(x1) + 2, int(y1) + 14),
-                                cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 255, 0), 1, cv2.LINE_AA)
+                    cv2.putText(out, f"obj #{oid}", (int(x1) + 3, int(y2) - 6),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2, cv2.LINE_AA)
+        # Counts banner on top, large enough to read in a small RViz image panel.
+        reg = self.registry.counts()
+        line1 = "UNIQUE: " + ("  ".join(f"{k} {v}" for k, v in sorted(reg.items())) or "-")
+        line2 = (f"IN VIEW: {0 if res.boxes is None else len(res.boxes)}   "
+                 f"LINE ({'/'.join(sorted(self.line_classes)) or 'all'}): "
+                 f"L>R {self.line.left_to_right}  R>L {self.line.right_to_left}")
+        cv2.rectangle(out, (0, 0), (w, 58), (0, 0, 0), -1)
+        cv2.putText(out, line1, (8, 24), cv2.FONT_HERSHEY_SIMPLEX, 0.62, (255, 255, 255), 2,
+                    cv2.LINE_AA)
+        cv2.putText(out, line2, (8, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.62, (0, 255, 255), 2,
+                    cv2.LINE_AA)
         rgb = out[:, :, ::-1] if msg.encoding == "rgb8" else out
         img = Image(header=msg.header, height=h, width=w, encoding=msg.encoding,
                     step=w * 3, data=np.ascontiguousarray(rgb).tobytes())
