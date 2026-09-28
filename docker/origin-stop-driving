@@ -1,18 +1,21 @@
 #!/usr/bin/env bash
-# Stop autonomous driving: stop the explorer, send zero velocity, and return the Origin One's
-# cmd_vel_controller to NONE control mode (reset_control_mode).
+# Stop autonomous driving: stop the explorer, send zero velocity, and put the Origin One's
+# cmd_vel_controller back in NONE control mode (documented set_control_mode, mode 0).
 source /opt/origin_ws/entrypoint_env.sh
 export ROS_AUTOMATIC_DISCOVERY_RANGE=SUBNET
 ROBOT_RMW=rmw_cyclonedds_cpp  # service routes through the Zenoh bridge need CycloneDDS requests
-if ros2 service list | grep -qx /frontier_explorer/stop; then
-  timeout 10 ros2 service call /frontier_explorer/stop std_srvs/srv/Trigger "{}" >/dev/null
+if ros2 service list | grep -x >/dev/null /frontier_explorer/stop; then
+  timeout 10 ros2 service call /frontier_explorer/stop std_srvs/srv/Trigger "{}" >/dev/null \
+    && echo "Explorer stopped."
 fi
-timeout 5 ros2 topic pub --times 5 --rate 10 /robot/cmd_vel_user geometry_msgs/msg/Twist "{}" >/dev/null
-SRV=/robot/cmd_vel_controller/reset_control_mode
-TYPE=$(RMW_IMPLEMENTATION=$ROBOT_RMW timeout 15 ros2 service type "$SRV" 2>/dev/null)
-if [ -n "$TYPE" ] && RMW_IMPLEMENTATION=$ROBOT_RMW timeout 30 ros2 service call "$SRV" "$TYPE" "{}"; then
-  echo "Stopped; control mode reset."
+# -w 1: wait until the robot's subscriber is matched (through the bridge) before publishing.
+timeout 10 ros2 topic pub -w 1 --times 5 --rate 10 /robot/cmd_vel_user geometry_msgs/msg/Twist "{}" \
+  >/dev/null && echo "Zero velocity sent."
+if RMW_IMPLEMENTATION=$ROBOT_RMW timeout 30 ros2 service call \
+    /robot/cmd_vel_controller/set_control_mode origin_msgs/srv/SetControlMode "{mode: {mode: 0}}" \
+    | grep -q "success=True"; then
+  echo "Control mode set to NONE: the robot no longer takes /robot/cmd_vel_user."
 else
-  echo "Zero velocity sent, but $SRV was not reachable: use the remote / e-stop." >&2
+  echo "Could not change the control mode: use the remote controller / e-stop." >&2
   exit 1
 fi

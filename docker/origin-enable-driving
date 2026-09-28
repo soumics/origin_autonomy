@@ -16,7 +16,7 @@ if ! RMW_IMPLEMENTATION=$ROBOT_RMW timeout 30 ros2 service call "$SRV" \
   echo "FAILED: $SRV not reachable. Is the stack running and connected to the robot?" >&2
   exit 1
 fi
-if ros2 service list | grep -qx /frontier_explorer/start; then
+if ros2 service list | grep -x >/dev/null /frontier_explorer/start; then
   timeout 10 ros2 service call /frontier_explorer/start std_srvs/srv/Trigger "{}" >/dev/null \
     && echo "Frontier exploration started."
 else
