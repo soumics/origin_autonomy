@@ -7,7 +7,8 @@ Localization:        ros2 launch origin_lidar_localization slam.launch.py locali
 
 Mapping starts a fresh database at `database_path` (the old one is deleted). Localization
 loads that database read-only. Publishes /map (2D occupancy grid for Nav2),
-/rtabmap/cloud_map (3D point cloud map), /rtabmap/octomap_* and TF map -> icp_odom.
+/rtabmap/cloud_map (3D point cloud map), /rtabmap/octomap_* and TF map -> icp_odom, plus
+<lidar_topic>_viz: the Ouster cloud for RViz, released once its TF to map is available.
 """
 
 import os
@@ -81,6 +82,13 @@ def launch_setup(context):
             arguments=arguments,
         ),
     ]
+    # Ouster cloud for RViz, released once map -> lidar TF exists (see tf_synced_relay.py).
+    nodes.append(Node(
+        package="origin_lidar_localization", executable="tf_synced_relay.py",
+        name="lidar_viz_relay", output="screen",
+        parameters=[{"use_sim_time": common["use_sim_time"], "fixed_frame": "map"}],
+        remappings=[("input", lidar_topic), ("output", lidar_topic + "_viz")],
+    ))
     return nodes
 
 

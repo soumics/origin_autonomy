@@ -105,7 +105,8 @@ Visualization Manager:
       Durability Policy: Volatile
       History Policy: Keep Last
       Reliability Policy: Best Effort
-      Value: /robot/lidar/points
+      Value: /robot/lidar/points_viz
+      Filter size: 50
     Style: Points
     Size (Pixels): 1
     Size (m): 0.02
@@ -117,7 +118,6 @@ Visualization Manager:
     Decay Time: 0
     Position Transformer: XYZ
     Selectable: true
-    Queue Size: 50
     Color: 255; 255; 255
   - Class: rviz_default_plugins/Odometry
     Name: Odometry
