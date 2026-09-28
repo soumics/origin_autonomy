@@ -35,6 +35,9 @@ def generate_launch_description():
                               description="Start RTAB-Map in mapping mode"),
         DeclareLaunchArgument("database_path", default_value="~/.ros/origin_rtabmap.db"),
         DeclareLaunchArgument("rviz", default_value="false"),
+        DeclareLaunchArgument("lidar_topic", default_value="/robot/lidar/points"),
+        DeclareLaunchArgument("odom_topic", default_value="/robot/odom"),
+        DeclareLaunchArgument("cmd_vel_topic", default_value="/robot/cmd_vel"),
 
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource(slam_launch),
@@ -43,6 +46,7 @@ def generate_launch_description():
                 "use_sim_time": use_sim_time,
                 "localization": "false",
                 "database_path": LaunchConfiguration("database_path"),
+                "lidar_topic": LaunchConfiguration("lidar_topic"),
             }.items(),
         ),
         IncludeLaunchDescription(
@@ -50,6 +54,9 @@ def generate_launch_description():
             launch_arguments={
                 "backend": LaunchConfiguration("backend"),
                 "use_sim_time": use_sim_time,
+                "lidar_topic": LaunchConfiguration("lidar_topic"),
+                "odom_topic": LaunchConfiguration("odom_topic"),
+                "cmd_vel_topic": LaunchConfiguration("cmd_vel_topic"),
             }.items(),
         ),
         Node(
@@ -57,7 +64,7 @@ def generate_launch_description():
             name="frontier_explorer", output="screen",
             parameters=[os.path.join(pkg, "config", "explorer.yaml"),
                         {"use_sim_time": use_sim_time}],
-            remappings=[("map", "/map"), ("cmd_vel", "/robot/cmd_vel")],
+            remappings=[("map", "/map"), ("cmd_vel", LaunchConfiguration("cmd_vel_topic"))],
         ),
         Node(
             package="rviz2", executable="rviz2",

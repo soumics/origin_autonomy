@@ -23,9 +23,8 @@ def launch_setup(context):
     pkg = get_package_share_directory("origin_yolo_perception")
     sim = LaunchConfiguration("sim").perform(context).lower() in ("true", "1")
     use_sim_time = LaunchConfiguration("use_sim_time").perform(context).lower() in ("true", "1")
-    cam = "/robot/camera"
-    topics = {"image": f"{cam}/color/image_raw", "depth": f"{cam}/depth/image_raw",
-              "camera_info": f"{cam}/color/camera_info", "cloud": "/robot/lidar/points"}
+    topics = {k: LaunchConfiguration(k + "_topic").perform(context)
+              for k in ("image", "depth", "camera_info", "cloud")}
     optical = "camera_color_optical_frame" if sim else ""
     overrides = {
         "use_sim_time": use_sim_time,
@@ -47,6 +46,10 @@ def generate_launch_description():
     return LaunchDescription([
         DeclareLaunchArgument("sim", default_value="true"),
         DeclareLaunchArgument("use_sim_time", default_value="false"),
+        DeclareLaunchArgument("image_topic", default_value="/robot/camera/color/image_raw"),
+        DeclareLaunchArgument("depth_topic", default_value="/robot/camera/depth/image_raw"),
+        DeclareLaunchArgument("camera_info_topic", default_value="/robot/camera/color/camera_info"),
+        DeclareLaunchArgument("cloud_topic", default_value="/robot/lidar/points"),
         DeclareLaunchArgument("model", default_value="",
                               description="Override the YOLO weights (e.g. yolo11s.pt)"),
         OpaqueFunction(function=launch_setup),

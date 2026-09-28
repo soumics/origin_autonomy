@@ -19,6 +19,7 @@ from launch.actions import DeclareLaunchArgument, OpaqueFunction, RegisterEventH
 from launch.event_handlers import OnProcessExit
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
+from nav2_common.launch import RewrittenYaml
 
 NAV2_NODES = [
     "controller_server",
@@ -39,6 +40,12 @@ def launch_setup(context):
     common = {"use_sim_time": use_sim_time}
     lidar = LaunchConfiguration("lidar_topic").perform(context)
     filtered = lidar + "_filtered"
+    odom = LaunchConfiguration("odom_topic").perform(context)
+    cmd_vel = LaunchConfiguration("cmd_vel_topic").perform(context)
+    # The Nav2 file names the simulation topics; rewrite them for the robot at hand.
+    nav2_params = RewrittenYaml(
+        source_file=nav2_params, root_key="", convert_types=True,
+        param_rewrites={"topic": filtered, "odom_topic": odom, "cmd_vel_out_topic": cmd_vel})
 
     nodes = [Node(
         package="origin_frontier_explore", executable="cloud_self_filter",
@@ -53,10 +60,10 @@ def launch_setup(context):
             name="custom_navigator", output="screen",
             parameters=[custom_params, common],
             remappings=[
-                ("cmd_vel", "/robot/cmd_vel"),
+                ("cmd_vel", cmd_vel),
                 ("map", "/map"),
                 ("cloud", filtered),
-                ("odom", "/robot/odom"),
+                ("odom", odom),
                 ("goal_pose", "/goal_pose"),
             ],
         ))
@@ -103,5 +110,8 @@ def generate_launch_description():
         DeclareLaunchArgument("backend", default_value="nav2", description="nav2 | custom"),
         DeclareLaunchArgument("use_sim_time", default_value="false"),
         DeclareLaunchArgument("lidar_topic", default_value="/robot/lidar/points"),
+        DeclareLaunchArgument("odom_topic", default_value="/robot/odom"),
+        DeclareLaunchArgument("cmd_vel_topic", default_value="/robot/cmd_vel",
+                              description="On the real Origin One: /robot/cmd_vel_user"),
         OpaqueFunction(function=launch_setup),
     ])

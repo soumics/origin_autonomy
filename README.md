@@ -32,33 +32,46 @@ docker run --rm -it --gpus=all --net=host --ipc=host -e DISPLAY \
 With a local checkout, `docker/run.sh` wraps this (`docker/run.sh mode:=navigate`,
 `docker/run.sh dev` for a development container with the workspace mounted).
 
-`bringup.launch.py` (the default command) starts in order:
+`bringup.launch.py` (the default command) decides by itself what to run:
 
-1. **Gazebo** with `origin_office_people.sdf`: 3 walking people, standing people, identical
-   chairs and furniture. The Ouster beams are drawn in the Gazebo GUI.
-2. **RTAB-Map** 3D SLAM.
-3. **Navigation** with the frontier explorer (`backend:=nav2` or `custom`).
-4. **YOLO perception.**
-5. **RViz:** robot, Ouster, map, costmaps, paths, frontiers, YOLO image with counts, 3D
-   object markers.
+1. **Robot or simulation (`sim:=auto`).** For about 8 s it looks for a running Origin One on
+   the network (`detect_origin_one.py`).
+   - **Found** (a lidar point cloud that is not a simulation): the stack runs on the robot. The
+     lidar, camera, depth, odometry and velocity topics are taken from what the robot
+     publishes, and velocity goes to `/robot/cmd_vel_user` when the Origin One's
+     `cmd_vel_controller` is there.
+   - **Not found:** it prints that the Origin One has not been started or is not on the same
+     network as this PC, and runs the Gazebo simulation instead. `sim:=false` keeps waiting
+     for the robot; `sim:=true` skips the check.
+2. **Explore or navigate (`mode:=auto`).**
+   - **No saved map:** the robot explores autonomously (frontiers, obstacle avoidance) while
+     RTAB-Map builds the 3D map. When no frontiers are left, it returns to its start,
+     `mission_manager` saves the map (`database_path`, plus a 2D `.pgm`/`.yaml` copy), and
+     RTAB-Map switches to **localization automatically**.
+   - **A saved map exists:** it starts directly in localization.
+   - In both cases you then send goals with RViz "2D Goal Pose".
+3. **YOLO perception and RViz:** robot, Ouster, map, costmaps, paths, frontiers, YOLO image
+   with counts, 3D object markers.
 
 | Argument | Default | |
 |---|---|---|
-| `mode` | `explore` | `explore`: no map, explore autonomously and build it; `navigate`: localize in the saved map, goals from RViz "2D Goal Pose" |
+| `sim` | `auto` | `auto`: robot if found, else Gazebo; `true`: Gazebo; `false`: wait for the robot |
+| `mode` | `auto` | `auto`: localize if a map exists, else explore; `explore` (old map kept as `.bak`); `navigate` |
 | `backend` | `nav2` | `nav2` or `custom` (own A* + DWA) |
-| `sim` | `true` | `false`: real robot (no Gazebo, wall clock) |
 | `world` | `origin_office_people.sdf` | or `origin_office.sdf` (no people, plain obstacles) |
 | `database_path` | `~/.ros/origin_rtabmap.db` | map, persisted in `~/.origin_autonomy` on the host |
+| `*_topic` | detected | `lidar_topic`, `image_topic`, `depth_topic`, `camera_info_topic`, `odom_topic`, `cmd_vel_topic` overrides |
 | `perception`, `rviz`, `lidar_rays`, `headless` | `true`, `true`, `true`, `false` | switch parts on or off |
 | `yolo_model` | (`yolo11s.pt`) | e.g. `yolo26s.pt` |
 
-Typical session: run once with the default `mode:=explore`. The robot explores until no
-frontiers are left and returns to its start; then Ctrl-C saves the map. Next,
-`mode:=navigate` localizes in that map, and goals are sent with RViz "2D Goal Pose".
+In simulation, ROS discovery stays on this machine (`ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST`),
+so Wi-Fi changes cannot cut nodes off. When the robot is detected, the bringup switches every
+node to `SUBNET` itself. The robot and the PC must use the same `ROS_DOMAIN_ID` (pass
+`-e ROS_DOMAIN_ID=<n>` if the robot does not use 0).
 
-ROS discovery is limited to this machine (`ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST`). For
-the real robot, where PC and robot talk over the network, add
-`-e ROS_AUTOMATIC_DISCOVERY_RANGE=SUBNET`.
+Real robot, still open (Phase 7): the Origin One only executes `/robot/cmd_vel_user` in its
+"user" control mode, which is set with `origin_msgs/srv/SetControlMode`; that step is not
+automated yet. Keep a hand on the e-stop for the first runs.
 
 ## Dependencies
 

@@ -6,6 +6,7 @@ set -e
 source /opt/ros/jazzy/setup.bash
 source /opt/origin_ws/install/setup.bash
 if [ -f /root/ros2_ws/install/setup.bash ]; then
-  source /root/ros2_ws/install/setup.bash
+  # Optional development overlay; a broken or half-built overlay must not stop the container.
+  source /root/ros2_ws/install/setup.bash || echo "entrypoint: ignoring /root/ros2_ws overlay"
 fi
 exec "$@"

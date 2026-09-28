@@ -35,6 +35,7 @@
   <exec_depend>nav2_lifecycle_manager</exec_depend>
   <exec_depend>nav2_mppi_controller</exec_depend>
   <exec_depend>nav2_navfn_planner</exec_depend>
+  <exec_depend>nav2_common</exec_depend>
   <exec_depend>origin_lidar_localization</exec_depend>
 
   <test_depend>ament_cmake_gtest</test_depend>

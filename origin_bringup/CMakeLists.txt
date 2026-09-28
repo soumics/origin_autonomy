@@ -4,6 +4,7 @@ project(origin_bringup)
 find_package(ament_cmake REQUIRED)
 
 install(DIRECTORY launch rviz worlds DESTINATION share/${PROJECT_NAME})
-install(PROGRAMS scripts/lidar_ray_markers.py DESTINATION lib/${PROJECT_NAME})
+install(PROGRAMS scripts/lidar_ray_markers.py scripts/mission_manager.py scripts/detect_origin_one.py
+        DESTINATION lib/${PROJECT_NAME})
 
 ament_package()
