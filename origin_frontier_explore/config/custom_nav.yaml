@@ -2,13 +2,20 @@
 cloud_self_filter:
   ros__parameters:
     base_frame: base_link
-    # Origin One body, wheels, Ouster mount and GNSS antenna, with a few cm margin
-    box_min_x: -0.40
-    box_max_x: 0.40
-    box_min_y: -0.34
-    box_max_y: 0.34
+    # Origin One footprint (0.66 x 0.58 m) + 0.1 m, up to 1 m: body, wheels, Ouster mount,
+    # GNSS antenna and whatever is mounted on top. The real robot left returns at
+    # (-0.18, -0.38, 0.75) in base_link with a smaller box: they sat inside the circle the
+    # robot sweeps when turning, so the collision monitor never let it rotate.
+    box_min_x: -0.45
+    box_max_x: 0.45
+    box_min_y: -0.42
+    box_max_y: 0.42
     box_min_z: -0.20
-    box_max_z: 0.60
+    box_max_z: 1.00
+    # Logs points left near the robot (turning circle 0.44 m + margin, obstacle heights)
+    report_radius: 0.60
+    report_min_z: 0.08
+    report_max_z: 0.80
 
 custom_navigator:
   ros__parameters:

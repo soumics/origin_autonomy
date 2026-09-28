@@ -7,6 +7,7 @@
 // the points in Gazebo). Every point is transformed into `base_frame`; points inside the
 // configured box are dropped, as are NaN/inf points. All point fields are kept.
 
+#include <algorithm>
 #include <cmath>
 #include <cstring>
 #include <memory>
@@ -31,12 +32,17 @@ public:
   : Node("cloud_self_filter", options)
   {
     base_frame_ = declare_parameter("base_frame", "base_link");
-    min_x_ = declare_parameter("box_min_x", -0.40);
-    max_x_ = declare_parameter("box_max_x", 0.40);
-    min_y_ = declare_parameter("box_min_y", -0.34);
-    max_y_ = declare_parameter("box_max_y", 0.34);
+    min_x_ = declare_parameter("box_min_x", -0.45);
+    max_x_ = declare_parameter("box_max_x", 0.45);
+    min_y_ = declare_parameter("box_min_y", -0.42);
+    max_y_ = declare_parameter("box_max_y", 0.42);
     min_z_ = declare_parameter("box_min_z", -0.20);
-    max_z_ = declare_parameter("box_max_z", 0.60);
+    max_z_ = declare_parameter("box_max_z", 1.00);
+    // Points kept within report_radius at obstacle heights block turning in place; they are
+    // logged (every 10 s) so a mount or person next to the robot shows up in the log.
+    report_radius_ = declare_parameter("report_radius", 0.60);
+    report_min_z_ = declare_parameter("report_min_z", 0.08);
+    report_max_z_ = declare_parameter("report_max_z", 0.80);
 
     tf_buffer_ = std::make_unique<tf2_ros::Buffer>(get_clock());
     tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
@@ -86,7 +92,8 @@ private:
     out->is_dense = true;
     out->data.resize(in.data.size());
 
-    size_t kept = 0;
+    size_t kept = 0, near = 0;
+    float near_min[3] = {1e9f, 1e9f, 1e9f}, near_max[3] = {-1e9f, -1e9f, -1e9f};
     const size_t n = static_cast<size_t>(in.width) * in.height;
     for (size_t i = 0; i < n; ++i) {
       const uint8_t * p = &in.data[i * in.point_step];
@@ -103,8 +110,28 @@ private:
       {
         continue;
       }
+      if (std::hypot(b.x(), b.y()) < report_radius_ && b.z() > report_min_z_ &&
+        b.z() < report_max_z_)
+      {
+        const float v[3] = {
+          static_cast<float>(b.x()), static_cast<float>(b.y()), static_cast<float>(b.z())};
+        for (int k = 0; k < 3; ++k) {
+          near_min[k] = std::min(near_min[k], v[k]);
+          near_max[k] = std::max(near_max[k], v[k]);
+        }
+        ++near;
+      }
       std::memcpy(&out->data[kept * in.point_step], p, in.point_step);
       ++kept;
+    }
+    if (near > 0) {
+      RCLCPP_WARN_THROTTLE(
+        get_logger(), *get_clock(), 10000,
+        "%zu lidar points within %.2f m of the robot after self-filtering (x %.2f..%.2f, "
+        "y %.2f..%.2f, z %.2f..%.2f in %s): they block turning in place. If this is part of "
+        "the robot, enlarge box_* in custom_nav.yaml; if it is a person, step back.",
+        near, report_radius_, near_min[0], near_max[0], near_min[1], near_max[1], near_min[2],
+        near_max[2], base_frame_.c_str());
     }
     out->data.resize(kept * in.point_step);
     out->width = static_cast<uint32_t>(kept);
@@ -114,6 +141,7 @@ private:
 
   std::string base_frame_, sensor_frame_;
   double min_x_, max_x_, min_y_, max_y_, min_z_, max_z_;
+  double report_radius_, report_min_z_, report_max_z_;
   bool have_tf_{false};
   tf2::Transform sensor_to_base_;
   std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
