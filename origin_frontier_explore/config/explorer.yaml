@@ -13,6 +13,8 @@ frontier_explorer:
     progress_timeout: 30.0
     progress_distance: 0.3
     empty_checks_to_finish: 3
+    blacklist_retry_period: 45.0    # all remaining frontiers blacklisted: retry them after this
+    blacklist_retries: 3
     return_to_start: true
     look_around_distance: 4.0       # spin 360 deg every 4 m so the camera sees everything (0 = off)
     look_around_speed: 0.6          # rad/s

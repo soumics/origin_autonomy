@@ -427,14 +427,13 @@ private:
       return;
     }
     recovery_cmd_ = geometry_msgs::msg::Twist();
-    // Prefer backing up if the space behind is free, otherwise rotate towards the target.
-    if (dwa_.clearance(-0.25, 0.0, 0.0) > 0.0) {
-      recovery_cmd_.linear.x = -0.15;
-      recovery_until_ = now() + rclcpp::Duration::from_seconds(1.5);
-    } else {
-      recovery_cmd_.angular.z = std::atan2(ty, tx) >= 0.0 ? 0.6 : -0.6;
-      recovery_until_ = now() + rclcpp::Duration::from_seconds(1.5);
+    // Rotate towards the target; never reverse (low obstacles close behind the robot are
+    // invisible to the Ouster). Only rotate if the turning footprint stays clear.
+    const double dir = std::atan2(ty, tx) >= 0.0 ? 1.0 : -1.0;
+    if (dwa_.clearance(0.0, 0.0, dir * 0.3) > 0.0) {
+      recovery_cmd_.angular.z = 0.6 * dir;
     }
+    recovery_until_ = now() + rclcpp::Duration::from_seconds(1.5);
     path_.clear();
     RCLCPP_WARN(get_logger(), "Recovery %d/%d (%s)", recoveries_, max_recoveries_, why.c_str());
   }

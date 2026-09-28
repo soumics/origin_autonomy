@@ -65,6 +65,8 @@ public:
     progress_timeout_ = declare_parameter("progress_timeout", 30.0);
     progress_distance_ = declare_parameter("progress_distance", 0.3);
     empty_checks_to_finish_ = declare_parameter("empty_checks_to_finish", 3);
+    blacklist_retry_period_ = declare_parameter("blacklist_retry_period", 45.0);
+    blacklist_retries_ = declare_parameter("blacklist_retries", 3);
     return_to_start_ = declare_parameter("return_to_start", true);
     look_around_distance_ = declare_parameter("look_around_distance", 4.0);
     look_around_speed_ = declare_parameter("look_around_speed", 0.6);
@@ -191,12 +193,29 @@ private:
       if (goal_active_) {
         return;
       }
+      // Frontiers left, but all blacklisted (the robot could not reach them, e.g. held up by
+      // people or a stop of the collision monitor): wait and retry them before giving up.
+      if (!all.empty() && retry_rounds_ < blacklist_retries_) {
+        if (!waiting_for_retry_) {
+          waiting_for_retry_ = true;
+          retry_time_ = now();
+          RCLCPP_WARN(get_logger(), "%zu frontiers left but all blacklisted; retrying in %.0f s "
+            "(round %d/%d)", all.size(), blacklist_retry_period_, retry_rounds_ + 1,
+            blacklist_retries_);
+        } else if ((now() - retry_time_).seconds() > blacklist_retry_period_) {
+          blacklist_.clear();
+          waiting_for_retry_ = false;
+          ++retry_rounds_;
+        }
+        return;
+      }
       if (++empty_checks_ >= empty_checks_to_finish_) {
         finishExploration(rx, ry);
       }
       return;
     }
     empty_checks_ = 0;
+    waiting_for_retry_ = false;
 
     // Keep the current goal while its frontier still exists.
     if (goal_active_) {
@@ -445,6 +464,11 @@ private:
   double update_period_, blacklist_radius_, goal_explored_radius_;
   double progress_timeout_, progress_distance_;
   int empty_checks_to_finish_;
+  double blacklist_retry_period_;
+  int blacklist_retries_;
+  int retry_rounds_{0};
+  bool waiting_for_retry_{false};
+  rclcpp::Time retry_time_;
   bool return_to_start_;
   double look_around_distance_, look_around_speed_;
   bool have_spin_ref_{false};

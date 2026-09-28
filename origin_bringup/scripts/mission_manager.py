@@ -5,14 +5,13 @@
 
 When the frontier explorer reports "done" (no frontiers left, back at the start), this node
   1. saves the RTAB-Map database (/rtabmap/rtabmap/backup),
-  2. writes a 2D copy of the map (<database>.pgm/.yaml, nav2 map_saver) for other tools,
+  2. writes a 2D copy of the map (<database>.pgm/.yaml, map_server format) from /map,
   3. switches RTAB-Map to localization (/rtabmap/rtabmap/set_mode_localization),
 and publishes the mission state on /origin/mission_status: exploring | saving | localization.
 Navigation keeps running, so the robot can be sent goals (RViz "2D Goal Pose") right away.
 """
 
 import os
-import subprocess
 import threading
 import time
 
@@ -20,6 +19,7 @@ import rclpy
 import rclpy.executors
 from rclpy.node import Node
 from rclpy.qos import DurabilityPolicy, QoSProfile
+from nav_msgs.msg import OccupancyGrid
 from std_msgs.msg import String
 from std_srvs.srv import Empty
 
@@ -38,6 +38,8 @@ class MissionManager(Node):
         self.clients_ = {n: self.create_client(Empty, f"{self.rtabmap}/{n}")
                          for n in ("backup", "set_mode_localization")}
         self.create_subscription(String, "/frontier_explorer/status", self.on_status, LATCHED)
+        self.map = None
+        self.create_subscription(OccupancyGrid, "/map", lambda m: setattr(self, "map", m), LATCHED)
         self.state = None
         self.set_state("exploring")
 
@@ -62,19 +64,31 @@ class MissionManager(Node):
             time.sleep(0.05)
         return fut.done()
 
+    def write_2d(self, base):
+        """map_server-compatible trinary .pgm + .yaml of the latest /map."""
+        m = self.map
+        if m is None:
+            self.get_logger().warn("2D map not saved: no /map received")
+            return
+        w, h = m.info.width, m.info.height
+        rows = []
+        for y in range(h - 1, -1, -1):  # PGM rows go top-down
+            row = m.data[y * w:(y + 1) * w]
+            rows.append(bytes(205 if v < 0 else (0 if v >= 65 else 254) for v in row))
+        with open(base + ".pgm", "wb") as f:
+            f.write(f"P5\n{w} {h}\n255\n".encode())
+            f.write(b"".join(rows))
+        o = m.info.origin.position
+        with open(base + ".yaml", "w") as f:
+            f.write(f"image: {os.path.basename(base)}.pgm\nmode: trinary\n"
+                    f"resolution: {m.info.resolution:.3f}\norigin: [{o.x:.3f}, {o.y:.3f}, 0]\n"
+                    "negate: 0\noccupied_thresh: 0.65\nfree_thresh: 0.196\n")
+
     def hand_over(self):
         self.get_logger().info("Exploration finished: saving the map ...")
         saved = self.call("backup")
         if self.save_2d:
-            base = os.path.splitext(self.database)[0]
-            use_sim_time = self.get_parameter("use_sim_time").value
-            r = subprocess.run(
-                ["ros2", "run", "nav2_map_server", "map_saver_cli", "-f", base,
-                 "--ros-args", "-p", f"use_sim_time:={str(use_sim_time).lower()}",
-                 "-p", "save_map_timeout:=20.0"],
-                capture_output=True, text=True, timeout=60)
-            if r.returncode != 0:
-                self.get_logger().warn(f"2D map not saved: {r.stderr.strip()[-200:]}")
+            self.write_2d(os.path.splitext(self.database)[0])
         localized = self.call("set_mode_localization")
         self.set_state("localization" if localized else "error")
         banner = "=" * 72

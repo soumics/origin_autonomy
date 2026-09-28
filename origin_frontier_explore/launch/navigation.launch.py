@@ -45,7 +45,9 @@ def launch_setup(context):
     # The Nav2 file names the simulation topics; rewrite them for the robot at hand.
     nav2_params = RewrittenYaml(
         source_file=nav2_params, root_key="", convert_types=True,
-        param_rewrites={"topic": filtered, "odom_topic": odom, "cmd_vel_out_topic": cmd_vel})
+        param_rewrites={"topic": filtered, "odom_topic": odom, "cmd_vel_out_topic": cmd_vel,
+                        "default_nav_to_pose_bt_xml": os.path.join(
+                            pkg, "behavior_trees", "navigate_to_pose_no_backup.xml")})
 
     nodes = [Node(
         package="origin_frontier_explore", executable="cloud_self_filter",

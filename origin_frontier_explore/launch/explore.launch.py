@@ -18,7 +18,7 @@ from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
 from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
-from launch.substitutions import LaunchConfiguration
+from launch.substitutions import LaunchConfiguration, PythonExpression
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
 
@@ -69,7 +69,11 @@ def generate_launch_description():
                         {"use_sim_time": use_sim_time,
                          "autostart": ParameterValue(LaunchConfiguration("explorer_autostart"),
                                                      value_type=bool)}],
-            remappings=[("map", "/map"), ("cmd_vel", LaunchConfiguration("cmd_vel_topic"))],
+            # Look-around spins: with Nav2 through the velocity smoother and collision monitor
+            # (cmd_vel_nav), which check the turning footprint against the lidar.
+            remappings=[("map", "/map"), ("cmd_vel", PythonExpression([
+                "'/cmd_vel_nav' if '", LaunchConfiguration("backend"), "' == 'nav2' else '",
+                LaunchConfiguration("cmd_vel_topic"), "'"]))],
         ),
         Node(
             package="rviz2", executable="rviz2",

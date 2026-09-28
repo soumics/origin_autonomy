@@ -65,7 +65,7 @@ install(TARGETS frontier_explorer custom_navigator cloud_self_filter
   DESTINATION lib/${PROJECT_NAME})
 install(PROGRAMS scripts/wait_for_transform.py DESTINATION lib/${PROJECT_NAME})
 install(DIRECTORY include/ DESTINATION include)
-install(DIRECTORY config launch rviz DESTINATION share/${PROJECT_NAME})
+install(DIRECTORY config launch rviz behavior_trees DESTINATION share/${PROJECT_NAME})
 
 if(BUILD_TESTING)
   find_package(ament_cmake_gtest REQUIRED)
