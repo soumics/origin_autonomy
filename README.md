@@ -17,41 +17,48 @@ standard ROS messages.
 | `origin_yolo_perception` | YOLO detection, tracking and counting on the camera stream |
 | `origin_bringup` | Top-level launch file, RViz config and simulation worlds |
 
-## Quick start (simulation)
+## Quick start: one command, everything in Docker
+
+The image clones this repository and the two Avular forks (branch `ros2-jazzy`) from GitHub,
+builds them and starts the whole stack:
 
 ```bash
-# Development container (from the workspace root, once)
-docker build -t origin_autonomy:jazzy src/origin_autonomy/docker
-src/origin_autonomy/docker/run.sh
-docker exec -it avular_jazzy bash
-
-# Inside the container
-colcon build --symlink-install && source install/setup.bash
-ros2 launch origin_bringup sim.launch.py                                   # Gazebo, origin_office world
-ros2 launch origin_frontier_explore explore.launch.py use_sim_time:=true rviz:=true backend:=nav2
-#   explores the unknown world autonomously while RTAB-Map builds the 3D map (backend:=custom for
-#   the own A* + DWA navigator); then localize and navigate in the saved map, see
-#   origin_frontier_explore/README.md
+docker build -t origin_autonomy:jazzy https://github.com/soumics/origin_autonomy.git#ros2-jazzy:docker
+xhost +local:
+docker run --rm -it --gpus=all --net=host --ipc=host -e DISPLAY \
+  -v /tmp/.X11-unix:/tmp/.X11-unix -v ~/.origin_autonomy:/root/.ros origin_autonomy:jazzy
 ```
 
-Perception test (moving people, identical chairs; Gazebo shows the lidar beams):
+With a local checkout, `docker/run.sh` wraps this (`docker/run.sh mode:=navigate`,
+`docker/run.sh dev` for a development container with the workspace mounted).
 
-```bash
-ros2 launch origin_bringup sim.launch.py world:=origin_office_people.sdf
-ros2 launch origin_yolo_perception perception.launch.py use_sim_time:=true sim:=true
-ros2 launch origin_frontier_explore explore.launch.py use_sim_time:=true rviz:=true
-```
+`bringup.launch.py` (the default command) starts in order:
 
-Worlds in `origin_bringup/worlds`:
+1. **Gazebo** with `origin_office_people.sdf`: 3 walking people, standing people, identical
+   chairs and furniture. The Ouster beams are drawn in the Gazebo GUI.
+2. **RTAB-Map** 3D SLAM.
+3. **Navigation** with the frontier explorer (`backend:=nav2` or `custom`).
+4. **YOLO perception.**
+5. **RViz:** robot, Ouster, map, costmaps, paths, frontiers, YOLO image with counts, 3D
+   object markers.
 
-- `origin_office.sdf`: 20 × 14 m, five-room indoor test world with obstacles of different
-  heights. It uses no online models, so it loads offline.
-- `origin_office_people.sdf`: the same floor plan with 3 identical walking people, 3 standing
-  people, 5 identical office chairs, 2 dining chairs, a dining table, a sofa and a
-  refrigerator. The models are downloaded from Gazebo Fuel on first use.
+| Argument | Default | |
+|---|---|---|
+| `mode` | `explore` | `explore`: no map, explore autonomously and build it; `navigate`: localize in the saved map, goals from RViz "2D Goal Pose" |
+| `backend` | `nav2` | `nav2` or `custom` (own A* + DWA) |
+| `sim` | `true` | `false`: real robot (no Gazebo, wall clock) |
+| `world` | `origin_office_people.sdf` | or `origin_office.sdf` (no people, plain obstacles) |
+| `database_path` | `~/.ros/origin_rtabmap.db` | map, persisted in `~/.origin_autonomy` on the host |
+| `perception`, `rviz`, `lidar_rays`, `headless` | `true`, `true`, `true`, `false` | switch parts on or off |
+| `yolo_model` | (`yolo11s.pt`) | e.g. `yolo26s.pt` |
 
-`config/fastdds.xml` (set by the Docker image) is required: without it, best-effort
-subscribers lose about 40% of the Ouster clouds.
+Typical session: run once with the default `mode:=explore`. The robot explores until no
+frontiers are left and returns to its start; then Ctrl-C saves the map. Next,
+`mode:=navigate` localizes in that map, and goals are sent with RViz "2D Goal Pose".
+
+ROS discovery is limited to this machine (`ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST`). For
+the real robot, where PC and robot talk over the network, add
+`-e ROS_AUTOMATIC_DISCOVERY_RANGE=SUBNET`.
 
 ## Dependencies
 
