@@ -181,6 +181,12 @@ def launch_setup(context):
             for k in topics:
                 if found.get(k):
                     topics[k] = found[k]
+            # Never drive the robot's internal /robot/cmd_vel: Avular's input for custom
+            # software is /robot/cmd_vel_user (executed in USER control mode).
+            topics["cmd_vel"] = "/robot/cmd_vel_user"
+            if not found.get("cmd_vel_user_listened"):
+                _say("WARNING: the robot does not (yet) listen on /robot/cmd_vel_user.",
+                     "Driving will not work until it does (check with origin-check-robot).")
     for k in topics:  # explicit topic arguments win
         if arg(k + "_topic"):
             topics[k] = arg(k + "_topic")
@@ -232,7 +238,8 @@ def launch_setup(context):
             cmd, env, _ = _bridge_cmd(arg("robot_ip"), arg("bridge_ros_distro"))
             actions.append(ExecuteProcess(cmd=cmd, additional_env={
                 "ROS_DISTRO": env["ROS_DISTRO"]}, output="log", name="zenoh_bridge"))
-        actions.append(_include("origin_bringup", "robot_model.launch.py"))
+        actions.append(_include("origin_bringup", "robot_model.launch.py",
+                                odom_topic=topics["odom"]))
     else:
         actions.append(_include(
             "origin_bringup", "sim.launch.py", world=arg("world"), headless=arg("headless"),

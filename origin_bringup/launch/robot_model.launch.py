@@ -5,15 +5,17 @@
 - origin_one_description's robot_state_publisher: /robot/robot_description and the body /
   sensor mount frames (base_link -> os_sensor, camera_link, ...)
 - the sensor frames that the Gazebo launch also publishes (camera optical frames, os_lidar)
-- tf_relay: the robot's /robot/tf -> /tf (odom -> base_link), without its own map -> odom
+- tf_relay: the robot's /robot/tf -> /tf (odom -> base_link), without its own map -> odom;
+  odom -> base_link from the odometry topic if the robot's TF does not come through
 """
 
 import os
 
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import IncludeLaunchDescription
+from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
 from launch.launch_description_sources import PythonLaunchDescriptionSource
+from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 
 # (x, y, z, yaw, pitch, roll, parent, child), same as origin_one_gazebo's simulation launch
@@ -30,7 +32,8 @@ SENSOR_FRAMES = [
 def generate_launch_description():
     description = os.path.join(get_package_share_directory("origin_one_description"),
                                "launch", "origin_one_description.launch.py")
-    nodes = [IncludeLaunchDescription(PythonLaunchDescriptionSource(description))]
+    nodes = [DeclareLaunchArgument("odom_topic", default_value="/robot/odom"),
+             IncludeLaunchDescription(PythonLaunchDescriptionSource(description))]
     for x, y, z, yaw, pitch, roll, parent, child in SENSOR_FRAMES:
         nodes.append(Node(
             package="tf2_ros", executable="static_transform_publisher", output="log",
@@ -39,5 +42,6 @@ def generate_launch_description():
                        "--pitch", str(pitch), "--roll", str(roll),
                        "--frame-id", parent, "--child-frame-id", child]))
     nodes.append(Node(package="origin_bringup", executable="tf_relay.py", name="tf_relay",
-                      output="screen"))
+                      output="screen",
+                      remappings=[("odom", LaunchConfiguration("odom_topic"))]))
     return LaunchDescription(nodes)

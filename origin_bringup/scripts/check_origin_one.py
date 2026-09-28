@@ -25,7 +25,8 @@ from rosidl_runtime_py.utilities import get_message
 EXPECTED = [
     ("/robot/lidar/points", "sensor_msgs/msg/PointCloud2", "pub", True, "Ouster lidar"),
     ("/robot/odom", "nav_msgs/msg/Odometry", "pub", True, "wheel odometry"),
-    ("/robot/tf", "tf2_msgs/msg/TFMessage", "pub", True, "TF odom->base_link"),
+    ("/robot/tf", "tf2_msgs/msg/TFMessage", "pub", False,
+     "TF odom->base_link (else derived from /robot/odom)"),
     ("/robot/camera/color/image_raw", "sensor_msgs/msg/Image", "pub", False, "camera colour"),
     ("/robot/camera/color/camera_info", "sensor_msgs/msg/CameraInfo", "pub", False,
      "camera colour info"),
@@ -34,7 +35,9 @@ EXPECTED = [
      "camera depth info"),
     ("/robot/cmd_vel", "geometry_msgs/msg/Twist", "pub", False, "velocity reference"),
     ("/robot/cmd_vel_controller/control_mode", "origin_msgs/msg/ControlMode", "pub", False,
-     "control mode"),
+     "control mode (docs)"),
+    ("/robot/control_mode", "origin_msgs/msg/ControlMode", "pub", False,
+     "control mode (seen on a real robot)"),
     ("/robot/cmd_vel_user", "geometry_msgs/msg/Twist", "sub", True, "velocity input (USER)"),
 ]
 SERVICES = [
@@ -118,6 +121,13 @@ def main():
                                                    "set_parameters_atomically"))
     print(f"  Other /robot topics ({len(extra_t)}): " + (", ".join(extra_t) or "-"))
     print(f"  Other /robot services ({len(extra_s)}): " + (", ".join(extra_s) or "-"))
+    tf_topics = sorted(t for t, ty in topics.items() if "tf2_msgs/msg/TFMessage" in ty)
+    print("  TF topics: " + (", ".join(tf_topics) or "none"))
+    for v in ("/robot/cmd_vel_user", "/robot/cmd_vel", "/robot/cmd_vel_joy", "/robot/cmd_vel_aut"):
+        if v in topics:
+            subs = [i.node_name for i in node.get_subscriptions_info_by_topic(v)]
+            pubs = [i.node_name for i in node.get_publishers_info_by_topic(v)]
+            print(f"  {v}: subscribers {subs or '-'}, publishers {pubs or '-'}")
     print(f"  RESULT: {'all essential interfaces available' if ok_all else 'ESSENTIAL INTERFACES MISSING'}")
     print(bar, flush=True)
     node.destroy_node()

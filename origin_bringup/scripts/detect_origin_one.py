@@ -76,8 +76,8 @@ def main():
     info = pick([i for i in infos if "depth" not in i],
                 (color.rsplit("/", 1)[0] + "/camera_info" if color else "zzz", prefix, "color"))
     odom = pick(odoms, ("/robot/odom", "odom"), avoid=("icp_odom",))
-    cmd = ("/robot/cmd_vel_user" if node.count_subscribers("/robot/cmd_vel_user") > 0
-           else pick(twists, ("/robot/cmd_vel", "cmd_vel")))
+    listened = node.count_subscribers("/robot/cmd_vel_user") > 0
+    cmd = "/robot/cmd_vel_user"  # Avular's input for custom software (USER control mode)
 
     found = bool(lidar) and not is_sim
     if found:
@@ -91,6 +91,7 @@ def main():
     print(json.dumps({
         "found": found, "reason": reason, "lidar": lidar, "image": color, "depth": depth,
         "camera_info": info, "odom": odom, "cmd_vel": cmd, "topics": len(topics),
+        "cmd_vel_user_listened": listened,
     }))
     node.destroy_node()
     rclpy.shutdown()
