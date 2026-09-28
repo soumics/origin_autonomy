@@ -111,6 +111,18 @@ def _detect(timeout=8.0):
         return {"found": False, "reason": f"detection failed: {e}"}
 
 
+def _check_interface():
+    """Print which of the Origin One's documented topics/services are visible here."""
+    exe = os.path.join(get_package_prefix("origin_bringup"), "lib", "origin_bringup",
+                       "check_origin_one.py")
+    env = dict(os.environ, ROS_AUTOMATIC_DISCOVERY_RANGE="SUBNET")
+    try:
+        r = subprocess.run([exe], env=env, capture_output=True, text=True, timeout=60)
+        print(r.stdout, flush=True)
+    except Exception as e:  # noqa: BLE001 - the check is informative only
+        print(f"Interface check failed: {e}", flush=True)
+
+
 def launch_setup(context):
     def arg(name):
         return LaunchConfiguration(name).perform(context)
@@ -140,6 +152,8 @@ def launch_setup(context):
                 _say("Looking for the Origin One on the network (about 8 s) ...")
             try:
                 found = _detect()
+                if found.get("found"):
+                    _check_interface()  # while the probe bridge is still connected
             finally:
                 if bridge is not None:
                     bridge.terminate()

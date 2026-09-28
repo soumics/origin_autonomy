@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# Check that the Origin One's ROS 2 topics and services are visible in this container.
+#   origin-check-robot [robot_ip]
+# Uses the running Zenoh bridge of the stack if there is one; otherwise starts a temporary one
+# to the robot (robot_ip, else 192.168.192.1 / 192.168.100.11 / the gateway).
+source /opt/origin_ws/entrypoint_env.sh
+export ROS_AUTOMATIC_DISCOVERY_RANGE=SUBNET
+BRIDGE_PID=""
+if ! pgrep -x zenoh-bridge-ro >/dev/null && ! pgrep -f "^zenoh-bridge-ros2dds" >/dev/null; then
+  GW=$(awk '$2=="00000000" {printf "%d.%d.%d.%d", "0x" substr($3,7,2), "0x" substr($3,5,2), "0x" substr($3,3,2), "0x" substr($3,1,2)}' /proc/net/route | head -1)
+  EPS=()
+  for ip in ${1:-192.168.192.1 192.168.100.11 $GW}; do EPS+=(-e "tcp/$ip:7447"); done
+  echo "Starting a Zenoh bridge to: ${EPS[*]}"
+  zenoh-bridge-ros2dds client "${EPS[@]}" >/tmp/origin-check-bridge.log 2>&1 &
+  BRIDGE_PID=$!
+  sleep 5
+fi
+ros2 run origin_bringup check_origin_one.py
+RC=$?
+[ -n "$BRIDGE_PID" ] && kill "$BRIDGE_PID" 2>/dev/null
+exit $RC
