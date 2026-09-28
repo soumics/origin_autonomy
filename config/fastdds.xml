@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!--
+  Fast DDS profile for the Origin One stack.
+
+  Ouster point clouds are ~0.7 MB. With the default 0.5 MB shared-memory segment they fall back
+  to fragmented UDP, and best-effort subscribers (RTAB-Map, Nav2 costmaps, RViz) lose ~40% of
+  the scans. A 32 MB shared-memory segment keeps them on shared memory on the same machine;
+  UDP stays enabled for other machines (e.g. PC <-> robot).
+
+  Use: export FASTRTPS_DEFAULT_PROFILES_FILE=<this file>  (set in docker/Dockerfile)
+-->
+<profiles xmlns="http://www.eprosima.com/XMLSchemas/fastRTPS_Profiles">
+  <transport_descriptors>
+    <transport_descriptor>
+      <transport_id>shm_large</transport_id>
+      <type>SHM</type>
+      <segment_size>33554432</segment_size>
+    </transport_descriptor>
+    <transport_descriptor>
+      <transport_id>udp</transport_id>
+      <type>UDPv4</type>
+      <sendBufferSize>8388608</sendBufferSize>
+      <receiveBufferSize>8388608</receiveBufferSize>
+    </transport_descriptor>
+  </transport_descriptors>
+  <participant profile_name="origin_default_participant" is_default_profile="true">
+    <rtps>
+      <useBuiltinTransports>false</useBuiltinTransports>
+      <userTransports>
+        <transport_id>shm_large</transport_id>
+        <transport_id>udp</transport_id>
+      </userTransports>
+    </rtps>
+  </participant>
+</profiles>
