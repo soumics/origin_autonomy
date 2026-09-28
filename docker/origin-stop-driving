@@ -4,10 +4,8 @@
 source /opt/origin_ws/entrypoint_env.sh
 export ROS_AUTOMATIC_DISCOVERY_RANGE=SUBNET
 ROBOT_RMW=rmw_cyclonedds_cpp  # service routes through the Zenoh bridge need CycloneDDS requests
-if ros2 service list | grep -x >/dev/null /frontier_explorer/stop; then
-  timeout 10 ros2 service call /frontier_explorer/stop std_srvs/srv/Trigger "{}" >/dev/null \
-    && echo "Explorer stopped."
-fi
+timeout 15 ros2 service call /frontier_explorer/stop std_srvs/srv/Trigger "{}" \
+  | grep -q "success=True" && echo "Explorer stopped."
 # -w 1: wait until the robot's subscriber is matched (through the bridge) before publishing.
 timeout 10 ros2 topic pub -w 1 --times 5 --rate 10 /robot/cmd_vel_user geometry_msgs/msg/Twist "{}" \
   >/dev/null && echo "Zero velocity sent."
