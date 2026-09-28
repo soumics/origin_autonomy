@@ -1,0 +1,24 @@
+/**/yolo_perception:   # node runs in the "perception" namespace
+  ros__parameters:
+    # yolo11s: best on the Gazebo renders (benchmark in README: yolo26s calls the black office
+    # chairs "airplane", yolo26m "car"). yolo26s.pt is one parameter away for real images.
+    model: yolo11s.pt
+    device: cuda:0             # falls back to cpu if CUDA is unavailable
+    confidence: 0.4
+    iou: 0.7                   # NMS: keep adjacent identical objects (row of chairs) apart
+    image_size: 640
+    tracker: bytetrack_origin.yaml   # resolved from this package's config dir by the launch file
+    classes: [""]              # empty = all 80 COCO classes
+    count_classes: [person, chair, couch, bed, dining table, refrigerator, tv, laptop,
+                    potted plant, bench, toilet, sink, oven, microwave, suitcase, backpack,
+                    bottle, cup]
+    min_hits: 5                # a track is counted after 5 frames (0.8 s at 6 fps) ...
+    min_track_score: 0.5       # ... with a mean confidence of at least 0.5
+    global_frame: map
+    optical_frame: ""          # set in the launch file for Gazebo (image frame is camera_link)
+    max_depth: 8.0             # depth-image fallback only
+    max_lidar_range: 20.0      # 3D positions come from the Ouster points inside each box
+    fixed_frame: odom          # lidar scan and camera image are synchronised through odom
+    line_position: 0.5
+    association_radius: 0.8
+    moving_classes: [person]
