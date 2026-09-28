@@ -152,7 +152,8 @@ def launch_setup(context):
     else:
         actions.append(_include(
             "origin_bringup", "sim.launch.py", world=arg("world"), headless=arg("headless"),
-            lidar_rays=arg("lidar_rays")))
+            lidar_rays=arg("lidar_rays"),
+            rviz="false"))  # our RViz below; without this, rviz:=true leaks into the fork's RViz
 
     nav_topics = {"lidar_topic": topics["lidar"], "odom_topic": topics["odom"],
                   "cmd_vel_topic": topics["cmd_vel"]}
