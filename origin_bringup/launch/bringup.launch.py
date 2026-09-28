@@ -36,8 +36,9 @@ import time
 
 from ament_index_python.packages import get_package_prefix, get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import (DeclareLaunchArgument, GroupAction, IncludeLaunchDescription,
-                            OpaqueFunction, SetEnvironmentVariable, TimerAction)
+from launch.actions import (DeclareLaunchArgument, ExecuteProcess, GroupAction,
+                            IncludeLaunchDescription, OpaqueFunction, SetEnvironmentVariable,
+                            TimerAction)
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
@@ -63,6 +64,38 @@ BANNER = "=" * 78
 
 def _say(*lines):
     print("\n".join([BANNER, *("  " + line for line in lines), BANNER]), flush=True)
+
+
+ROBOT_ADDRESSES = ("192.168.192.1", "192.168.100.11")  # Origin One Wi-Fi AP, Ethernet port
+ZENOH_PORT = 7447
+
+
+def _gateway():
+    """Default gateway of this machine (the robot, when connected to its own Wi-Fi)."""
+    try:
+        with open("/proc/net/route") as f:
+            for line in f.readlines()[1:]:
+                fields = line.split()
+                if fields[1] == "00000000" and int(fields[3], 16) & 2:
+                    g = int(fields[2], 16)
+                    return ".".join(str((g >> s) & 0xFF) for s in (0, 8, 16, 24))
+    except OSError:
+        pass
+    return ""
+
+
+def _bridge_cmd(robot_ip, ros_distro):
+    """zenoh-bridge-ros2dds client towards the robot's Zenoh server (Avular's documented way to
+    reach the Origin One from another computer). Several endpoints: the first one that answers
+    is used."""
+    ips = [robot_ip] if robot_ip else list(ROBOT_ADDRESSES)
+    if not robot_ip and _gateway() and _gateway() not in ips:
+        ips.append(_gateway())
+    cmd = ["zenoh-bridge-ros2dds", "client"]
+    for ip in ips:
+        cmd += ["-e", f"tcp/{ip}:{ZENOH_PORT}"]
+    env = dict(os.environ, ROS_DISTRO=ros_distro)
+    return cmd, env, ips
 
 
 def _detect(timeout=8.0):
@@ -93,22 +126,41 @@ def launch_setup(context):
     if sim_arg == "true":
         sim = True
     else:
-        _say("Looking for the Origin One on the network (about 8 s) ...")
+        use_bridge = flag("zenoh_bridge")
         while True:
-            found = _detect()
+            bridge = None
+            if use_bridge:
+                cmd, env, ips = _bridge_cmd(arg("robot_ip"), arg("bridge_ros_distro"))
+                _say("Looking for the Origin One (about 12 s): Zenoh bridge to "
+                     + ", ".join(f"{ip}:{ZENOH_PORT}" for ip in ips) + " ...")
+                bridge = subprocess.Popen(cmd, env=env, stdout=subprocess.DEVNULL,
+                                          stderr=subprocess.DEVNULL)
+                time.sleep(4.0)  # connect to the robot and declare its topics locally
+            else:
+                _say("Looking for the Origin One on the network (about 8 s) ...")
+            try:
+                found = _detect()
+            finally:
+                if bridge is not None:
+                    bridge.terminate()
+                    try:
+                        bridge.wait(timeout=5)
+                    except subprocess.TimeoutExpired:
+                        bridge.kill()
             if found.get("found"):
                 break
             reason = found.get("reason", "")
             if sim_arg == "auto":
                 _say("Origin One NOT detected: " + reason,
-                     "The robot has not been started, or it is not on the same network as",
-                     "this PC / laptop (check Wi-Fi, ROS_DOMAIN_ID, and that the robot's ROS",
-                     "stack is running). Starting the Gazebo SIMULATION instead.",
+                     "The robot has not been started, or this PC / laptop is not connected to",
+                     "its network (the robot's Wi-Fi, or its Ethernet port). Starting the",
+                     "Gazebo SIMULATION instead.",
                      "Use sim:=false to wait for the robot, sim:=true to skip this check.")
                 break
             _say("Origin One NOT detected: " + reason,
-                 "The robot has not been started, or it is not on the same network as",
-                 "this PC / laptop. Retrying in 5 s (Ctrl-C to stop) ...")
+                 "The robot has not been started, or this PC / laptop is not connected to",
+                 "its network (the robot's Wi-Fi, or its Ethernet port).",
+                 "Retrying in 5 s (Ctrl-C to stop) ...")
             time.sleep(5.0)
         sim = not found.get("found")
         if not sim:
@@ -120,7 +172,12 @@ def launch_setup(context):
             topics[k] = arg(k + "_topic")
 
     # ---------------------------------------------------------------- explore or navigate
-    database = os.path.expanduser(arg("database_path"))
+    database = os.path.expanduser(arg("database_path") or (
+        "~/.ros/origin_rtabmap_sim.db" if sim else "~/.ros/origin_rtabmap_robot.db"))
+    legacy = os.path.expanduser("~/.ros/origin_rtabmap.db")  # before sim/robot were separate
+    if sim and not arg("database_path") and os.path.isfile(legacy) \
+            and not os.path.exists(database):
+        shutil.move(legacy, database)
     mode = arg("mode")
     if mode not in ("auto", "explore", "navigate"):
         raise RuntimeError(f"mode must be auto, explore or navigate, got '{mode}'")
@@ -136,19 +193,31 @@ def launch_setup(context):
 
     backend = arg("backend")
     use_sim_time = "true" if sim else "false"
-    delay = 8.0 if sim else 0.0  # let Gazebo start and spawn the robot first
+    # Gazebo: let it start and spawn the robot; robot: let the bridge connect first.
+    delay = 8.0 if sim else 6.0
+    drive_hint = [] if sim else [
+        "REAL ROBOT: nothing drives until you enable it (keep a hand on the e-stop):",
+        "   docker exec origin_run origin-enable-driving    # USER control mode + start",
+        "   docker exec origin_run origin-stop-driving      # stop, control mode back to NONE"]
     _say(f"Origin One autonomy: {'SIMULATION (Gazebo)' if sim else 'REAL ROBOT'}, "
          f"mode {mode.upper()}, backend {backend}",
          f"map: {database} ({'exists' if have_map else 'new'})",
          *(f"{k:12s} {v}" for k, v in topics.items()),
          "explore: when no frontiers are left the map is saved and RTAB-Map switches to"
          " localization" if mode == "explore" else
-         "navigate: send goals with RViz '2D Goal Pose' (set the start with '2D Pose Estimate')")
+         "navigate: send goals with RViz '2D Goal Pose' (set the start with '2D Pose Estimate')",
+         *drive_hint)
 
     actions = []
     if not sim:
-        # Talk to the robot over the network (the image defaults to this machine only).
-        actions.append(SetEnvironmentVariable("ROS_AUTOMATIC_DISCOVERY_RANGE", "SUBNET"))
+        if flag("zenoh_bridge"):
+            cmd, env, _ = _bridge_cmd(arg("robot_ip"), arg("bridge_ros_distro"))
+            actions.append(ExecuteProcess(cmd=cmd, additional_env={
+                "ROS_DISTRO": env["ROS_DISTRO"]}, output="log", name="zenoh_bridge"))
+        else:
+            # Direct DDS to the robot (no bridge): discovery over the network.
+            actions.append(SetEnvironmentVariable("ROS_AUTOMATIC_DISCOVERY_RANGE", "SUBNET"))
+        actions.append(_include("origin_bringup", "robot_model.launch.py"))
     else:
         actions.append(_include(
             "origin_bringup", "sim.launch.py", world=arg("world"), headless=arg("headless"),
@@ -160,7 +229,8 @@ def launch_setup(context):
     if mode == "explore":
         stack = [
             _include("origin_frontier_explore", "explore.launch.py", use_sim_time=use_sim_time,
-                     backend=backend, database_path=database, rviz="false", **nav_topics),
+                     backend=backend, database_path=database, rviz="false",
+                     explorer_autostart="true" if sim else "false", **nav_topics),
             Node(package="origin_bringup", executable="mission_manager.py",
                  name="mission_manager", output="screen",
                  parameters=[{"use_sim_time": sim, "database_path": database}]),
@@ -177,7 +247,10 @@ def launch_setup(context):
 
     if flag("perception"):
         perception = {"use_sim_time": use_sim_time, "sim": "true" if sim else "false",
-                      "image_topic": topics["image"], "depth_topic": topics["depth"],
+                      "image_topic": topics["image"],
+                      # On the robot, 3D positions come from the lidar; not subscribing to depth
+                      # keeps it off the Wi-Fi link.
+                      "depth_topic": topics["depth"] if sim else "/perception/depth_unused",
                       "camera_info_topic": topics["camera_info"], "cloud_topic": topics["lidar"]}
         if arg("yolo_model"):
             perception["model"] = arg("yolo_model")
@@ -203,8 +276,17 @@ def generate_launch_description():
         DeclareLaunchArgument("backend", default_value="nav2", description="nav2 | custom"),
         DeclareLaunchArgument("world", default_value="origin_office_people.sdf",
                               description="Gazebo world in origin_bringup/worlds"),
-        DeclareLaunchArgument("database_path", default_value="~/.ros/origin_rtabmap.db",
-                              description="RTAB-Map map database (written in explore mode)"),
+        DeclareLaunchArgument("database_path", default_value="",
+                              description="RTAB-Map map database; default "
+                                          "~/.ros/origin_rtabmap_sim.db / _robot.db"),
+        DeclareLaunchArgument("robot_ip", default_value="",
+                              description="Origin One address; default: try 192.168.192.1 "
+                                          "(its Wi-Fi), 192.168.100.11 (Ethernet), gateway"),
+        DeclareLaunchArgument("zenoh_bridge", default_value="true",
+                              description="Reach the robot through zenoh-bridge-ros2dds "
+                                          "(Avular's documented way); false: direct DDS"),
+        DeclareLaunchArgument("bridge_ros_distro", default_value="jazzy",
+                              description="ROS_DISTRO for the local bridge (this PC runs Jazzy)"),
         DeclareLaunchArgument("start_at_origin", default_value="false",
                               description="navigate mode: robot starts where mapping started"),
         DeclareLaunchArgument("perception", default_value="true"),

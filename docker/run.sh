@@ -34,6 +34,7 @@ if [ "${1:-}" = "dev" ]; then
     -v "$WS:/root/ros2_ws" -w /root/ros2_ws "$IMAGE" sleep infinity
   echo "Dev container '$NAME' started with $WS at /root/ros2_ws: docker exec -it $NAME bash"
 else
-  docker run --rm -it "${COMMON[@]}" "$IMAGE" \
+  docker rm -f origin_run >/dev/null 2>&1 || true
+  docker run --rm -it --name origin_run "${COMMON[@]}" "$IMAGE" \
     ros2 launch origin_bringup bringup.launch.py "$@"
 fi

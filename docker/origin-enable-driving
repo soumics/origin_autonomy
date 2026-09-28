@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# Let the autonomy stack drive the real Origin One:
+#   1. switch the robot's cmd_vel_controller to USER control mode (30), so it executes
+#      /robot/cmd_vel_user (Avular: software_development/ros2/ros2_interfaces/control_interface)
+#   2. start the frontier explorer (explore mode); in navigate mode, send RViz goals.
+# Keep a hand on the e-stop. Undo with origin-stop-driving.
+source /opt/origin_ws/entrypoint_env.sh
+SRV=/robot/cmd_vel_controller/set_control_mode
+echo "Switching the Origin One to USER control mode ..."
+if ! timeout 20 ros2 service call "$SRV" origin_msgs/srv/SetControlMode "{mode: {mode: 30}}"; then
+  echo "FAILED: $SRV not reachable. Is the stack running and connected to the robot?" >&2
+  exit 1
+fi
+if ros2 service list | grep -qx /frontier_explorer/start; then
+  timeout 10 ros2 service call /frontier_explorer/start std_srvs/srv/Trigger "{}" >/dev/null \
+    && echo "Frontier exploration started."
+else
+  echo "Navigate mode: send goals with RViz '2D Goal Pose'."
+fi

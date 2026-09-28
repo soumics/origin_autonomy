@@ -20,6 +20,7 @@ from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
+from launch_ros.parameter_descriptions import ParameterValue
 
 
 def generate_launch_description():
@@ -38,6 +39,8 @@ def generate_launch_description():
         DeclareLaunchArgument("lidar_topic", default_value="/robot/lidar/points"),
         DeclareLaunchArgument("odom_topic", default_value="/robot/odom"),
         DeclareLaunchArgument("cmd_vel_topic", default_value="/robot/cmd_vel"),
+        DeclareLaunchArgument("explorer_autostart", default_value="true",
+                              description="false: wait for /frontier_explorer/start"),
 
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource(slam_launch),
@@ -63,7 +66,9 @@ def generate_launch_description():
             package="origin_frontier_explore", executable="frontier_explorer",
             name="frontier_explorer", output="screen",
             parameters=[os.path.join(pkg, "config", "explorer.yaml"),
-                        {"use_sim_time": use_sim_time}],
+                        {"use_sim_time": use_sim_time,
+                         "autostart": ParameterValue(LaunchConfiguration("explorer_autostart"),
+                                                     value_type=bool)}],
             remappings=[("map", "/map"), ("cmd_vel", LaunchConfiguration("cmd_vel_topic"))],
         ),
         Node(
