@@ -26,6 +26,9 @@ class TfRelay(Node):
         drop = self.declare_parameter("drop", ["map:odom"]).value  # "parent:child" pairs
         self.drop = {tuple(p.split(":", 1)) for p in drop if ":" in p}
         self.fallback_after = self.declare_parameter("odom_fallback_after", 2.0).value
+        # The robot's clock is not synchronised with this PC: use this PC's time (see
+        # sensor_restamp.py, which does the same for the lidar and camera).
+        self.restamp = self.declare_parameter("restamp", True).value
         static = QoSProfile(depth=100, durability=DurabilityPolicy.TRANSIENT_LOCAL)
         self.pub = self.create_publisher(TFMessage, "/tf", 100)
         self.pub_static = self.create_publisher(TFMessage, "/tf_static", static)
@@ -43,6 +46,10 @@ class TfRelay(Node):
                 if (t.header.frame_id.lstrip("/"), t.child_frame_id.lstrip("/")) not in self.drop]
         if dynamic and any(t.child_frame_id.lstrip("/") == "base_link" for t in keep):
             self.robot_tf_seen = True
+        if dynamic and self.restamp:
+            now = self.get_clock().now().to_msg()
+            for t in keep:
+                t.header.stamp = now
         if keep:
             pub.publish(TFMessage(transforms=keep))
 
@@ -58,6 +65,8 @@ class TfRelay(Node):
             self.fallback_announced = True
         t = TransformStamped()
         t.header = msg.header
+        if self.restamp:
+            t.header.stamp = self.get_clock().now().to_msg()
         t.child_frame_id = msg.child_frame_id or "base_link"
         if not t.header.frame_id:
             t.header.frame_id = "odom"

@@ -13,7 +13,7 @@ import os
 
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
+from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription, OpaqueFunction
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
@@ -29,10 +29,19 @@ SENSOR_FRAMES = [
 ]
 
 
+def _restamp(context):
+    pairs = [p for p in LaunchConfiguration("restamp_pairs").perform(context).split(",") if p]
+    params = {"pairs": pairs} if pairs else {}
+    return [Node(package="origin_bringup", executable="sensor_restamp.py",
+                 name="sensor_restamp", output="screen", parameters=[params])]
+
+
 def generate_launch_description():
     description = os.path.join(get_package_share_directory("origin_one_description"),
                                "launch", "origin_one_description.launch.py")
     nodes = [DeclareLaunchArgument("odom_topic", default_value="/robot/odom"),
+             DeclareLaunchArgument("restamp_pairs", default_value="",
+                                   description="sensor_restamp pairs, comma separated"),
              IncludeLaunchDescription(PythonLaunchDescriptionSource(description))]
     for x, y, z, yaw, pitch, roll, parent, child in SENSOR_FRAMES:
         nodes.append(Node(
@@ -41,6 +50,7 @@ def generate_launch_description():
             arguments=["--x", str(x), "--y", str(y), "--z", str(z), "--yaw", str(yaw),
                        "--pitch", str(pitch), "--roll", str(roll),
                        "--frame-id", parent, "--child-frame-id", child]))
+    nodes.append(OpaqueFunction(function=_restamp))
     nodes.append(Node(package="origin_bringup", executable="tf_relay.py", name="tf_relay",
                       output="screen",
                       remappings=[("odom", LaunchConfiguration("odom_topic"))]))

@@ -238,8 +238,16 @@ def launch_setup(context):
             cmd, env, _ = _bridge_cmd(arg("robot_ip"), arg("bridge_ros_distro"))
             actions.append(ExecuteProcess(cmd=cmd, additional_env={
                 "ROS_DISTRO": env["ROS_DISTRO"]}, output="log", name="zenoh_bridge"))
+        # The robot's sensor clocks are not this PC's clock: consume re-stamped copies.
+        restamped = {"lidar": "/origin/lidar/points", "image": "/origin/camera/color/image_raw",
+                     "camera_info": "/origin/camera/color/camera_info"}
+        pairs = [f"{topics[k]}:{v}:{t}" for k, v, t in (
+            ("lidar", restamped["lidar"], "sensor_msgs/msg/PointCloud2"),
+            ("image", restamped["image"], "sensor_msgs/msg/Image"),
+            ("camera_info", restamped["camera_info"], "sensor_msgs/msg/CameraInfo"))]
+        topics.update(restamped)
         actions.append(_include("origin_bringup", "robot_model.launch.py",
-                                odom_topic=topics["odom"]))
+                                odom_topic=topics["odom"], restamp_pairs=",".join(pairs)))
     else:
         actions.append(_include(
             "origin_bringup", "sim.launch.py", world=arg("world"), headless=arg("headless"),
