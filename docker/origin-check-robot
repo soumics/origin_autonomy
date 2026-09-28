@@ -11,7 +11,8 @@ if ! pgrep -x zenoh-bridge-ro >/dev/null && ! pgrep -f "^zenoh-bridge-ros2dds" >
   EPS=()
   for ip in ${1:-192.168.192.1 192.168.100.11 $GW}; do EPS+=(-e "tcp/$ip:7447"); done
   echo "Starting a Zenoh bridge to: ${EPS[*]}"
-  zenoh-bridge-ros2dds client "${EPS[@]}" >/tmp/origin-check-bridge.log 2>&1 &
+  CFG=${ORIGIN_ZENOH_CONFIG:-/opt/origin_ws/src/origin_autonomy/config/zenoh_bridge.json5}
+  zenoh-bridge-ros2dds client -c "$CFG" "${EPS[@]}" >/tmp/origin-check-bridge.log 2>&1 &
   BRIDGE_PID=$!
   sleep 5
 fi

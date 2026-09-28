@@ -1,0 +1,19 @@
+// zenoh-bridge-ros2dds (1.0.3) client configuration for the PC side of the Origin One link.
+// Only the robot's /robot/... interface is routed, in both directions:
+//  - the robot's own /tf (stamped with its uptime clock, with its own map -> odom) stays out of
+//    our stack (tf_relay derives what we need from /robot/tf or /robot/odom), and
+//  - our /tf, /map, /plan, /goal_pose, ... stay out of the robot's software.
+{
+  plugins: {
+    ros2dds: {
+      allow: {
+        publishers: ["/robot/.*"],
+        subscribers: ["/robot/.*"],
+        service_servers: ["/robot/.*"],
+        service_clients: ["/robot/.*"],
+        action_servers: ["/robot/.*"],
+        action_clients: ["/robot/.*"],
+      },
+    },
+  },
+}

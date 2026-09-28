@@ -91,7 +91,13 @@ def _bridge_cmd(robot_ip, ros_distro):
     ips = [robot_ip] if robot_ip else list(ROBOT_ADDRESSES)
     if not robot_ip and _gateway() and _gateway() not in ips:
         ips.append(_gateway())
+    # Only the robot's /robot/... interface is routed: keeps the robot's own /tf (uptime-stamped,
+    # with its map -> odom) out of our stack, and our /tf, /map, ... out of the robot's software.
     cmd = ["zenoh-bridge-ros2dds", "client"]
+    config = os.environ.get("ORIGIN_ZENOH_CONFIG",
+                            "/opt/origin_ws/src/origin_autonomy/config/zenoh_bridge.json5")
+    if os.path.isfile(config):
+        cmd += ["-c", config]
     for ip in ips:
         cmd += ["-e", f"tcp/{ip}:{ZENOH_PORT}"]
     env = dict(os.environ, ROS_DISTRO=ros_distro)

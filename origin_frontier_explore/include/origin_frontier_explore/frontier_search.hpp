@@ -26,6 +26,7 @@ struct FrontierSearchParams
   double size_weight{1.0};        // score += size_weight * frontier length (m)
   double distance_weight{1.0};    // score -= distance_weight * travel distance (m)
   double start_search_radius{1.0};  // m, if the robot cell itself is not traversable
+  bool ignore_isolated_obstacles{true};  // see removeIsolatedObstacles()
 };
 
 struct Frontier

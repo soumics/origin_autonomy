@@ -74,6 +74,24 @@ TEST(FrontierSearch, IgnoresUnreachableAndWalledOffFrontiers)
   EXPECT_NEAR(f[0].travel_distance, 8.0, 0.5);
 }
 
+TEST(FrontierSearch, ScatteredSingleObstaclesDoNotBlockTheWay)
+{
+  // Corridor 1.2 m wide, open to unknown at x = 9.8; single-cell "clutter" returns every 1 m
+  // on its centre line. With 0.40 m clearance each would block the corridor completely.
+  Grid g = makeGrid(100);
+  fillRect(g, 0.2, 2.4, 9.8, 3.6, 0);
+  fillRect(g, 9.8, 2.4, 10.0, 3.6, -1);
+  for (double x = 2.0; x < 9.0; x += 1.0) {
+    int cx, cy;
+    g.worldToCell(x, 3.0, cx, cy);
+    g.data[g.index(cx, cy)] = 100;
+  }
+  FrontierSearchParams p;
+  EXPECT_EQ(findFrontiers(g, 1.0, 3.0, p).size(), 1u);
+  p.ignore_isolated_obstacles = false;
+  EXPECT_TRUE(findFrontiers(g, 1.0, 3.0, p).empty());
+}
+
 TEST(FrontierSearch, NoFrontiersInClosedRoom)
 {
   Grid g = makeGrid(100);

@@ -19,9 +19,13 @@ const int kDy8[8] = {0, 0, 1, -1, 1, -1, 1, -1};
 }  // namespace
 
 std::vector<Frontier> findFrontiers(
-  const Grid & grid, double robot_x, double robot_y, const FrontierSearchParams & params)
+  const Grid & input, double robot_x, double robot_y, const FrontierSearchParams & params)
 {
   std::vector<Frontier> frontiers;
+  Grid grid = input;
+  if (params.ignore_isolated_obstacles) {
+    removeIsolatedObstacles(grid, params.occupied_threshold);
+  }
   if (grid.width == 0 || grid.height == 0) {
     return frontiers;
   }

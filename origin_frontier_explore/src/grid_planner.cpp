@@ -15,6 +15,9 @@ namespace origin_frontier_explore
 void GridPlanner::setMap(const Grid & grid)
 {
   grid_ = grid;
+  if (params_.ignore_isolated_obstacles) {
+    removeIsolatedObstacles(grid_, params_.occupied_threshold);
+  }
   dist_ = obstacleDistance(
     grid_, params_.occupied_threshold, static_cast<float>(params_.inflation_radius));
 }

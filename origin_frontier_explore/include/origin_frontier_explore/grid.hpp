@@ -33,6 +33,12 @@ struct Grid
   CellState state(int x, int y, int occupied_threshold) const;
 };
 
+// Occupied cells with at most `max_neighbours` occupied 8-neighbours (single lidar returns from
+// clutter, people, sensor noise) set to free. Real maps of a real Origin One are sprinkled with
+// them; with the robot's 0.40 m clearance each one blocks a 0.8 m circle and cut every path to
+// the frontiers. Walls and objects always have occupied neighbours. Returns the count removed.
+int removeIsolatedObstacles(Grid & grid, int occupied_threshold, int max_neighbours = 1);
+
 // Distance (m) from every cell to the nearest occupied cell, capped at max_distance.
 // Unknown cells are not obstacles. Brushfire propagation of the nearest obstacle cell.
 std::vector<float> obstacleDistance(const Grid & grid, int occupied_threshold, float max_distance);

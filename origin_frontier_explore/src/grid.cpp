@@ -86,6 +86,35 @@ std::vector<float> obstacleDistance(
   return dist;
 }
 
+int removeIsolatedObstacles(Grid & grid, int occupied_threshold, int max_neighbours)
+{
+  std::vector<int> isolated;
+  for (int y = 0; y < grid.height; ++y) {
+    for (int x = 0; x < grid.width; ++x) {
+      if (grid.state(x, y, occupied_threshold) != CellState::kOccupied) {
+        continue;
+      }
+      int n = 0;
+      for (int dy = -1; dy <= 1; ++dy) {
+        for (int dx = -1; dx <= 1; ++dx) {
+          if ((dx || dy) && grid.inBounds(x + dx, y + dy) &&
+            grid.state(x + dx, y + dy, occupied_threshold) == CellState::kOccupied)
+          {
+            ++n;
+          }
+        }
+      }
+      if (n <= max_neighbours) {
+        isolated.push_back(grid.index(x, y));
+      }
+    }
+  }
+  for (const int i : isolated) {
+    grid.data[i] = 0;
+  }
+  return static_cast<int>(isolated.size());
+}
+
 std::vector<float> obstacleDistance(const Grid & grid, int occupied_threshold, float max_distance)
 {
   std::vector<Cell> obstacles;

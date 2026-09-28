@@ -26,6 +26,7 @@ struct PlannerParams
   bool allow_unknown{true};
   double unknown_cost{3.0};        // step cost multiplier through unknown cells
   double goal_search_radius{0.5};  // m, move a lethal goal to the nearest free cell
+  bool ignore_isolated_obstacles{true};  // see removeIsolatedObstacles(); local DWA still sees them
 };
 
 using Path = std::vector<std::pair<double, double>>;  // world (x, y)
