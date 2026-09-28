@@ -34,8 +34,24 @@ ros2 launch origin_frontier_explore explore.launch.py use_sim_time:=true rviz:=t
 #   origin_frontier_explore/README.md
 ```
 
-`origin_bringup/worlds/origin_office.sdf` is a 20 × 14 m, five-room indoor test world with
-obstacles of different heights. It uses no online models, so it loads offline.
+Perception test (moving people, identical chairs; Gazebo shows the lidar beams):
+
+```bash
+ros2 launch origin_bringup sim.launch.py world:=origin_office_people.sdf
+ros2 launch origin_yolo_perception perception.launch.py use_sim_time:=true sim:=true
+ros2 launch origin_frontier_explore explore.launch.py use_sim_time:=true rviz:=true
+```
+
+Worlds in `origin_bringup/worlds`:
+
+- `origin_office.sdf`: 20 × 14 m, five-room indoor test world with obstacles of different
+  heights. It uses no online models, so it loads offline.
+- `origin_office_people.sdf`: the same floor plan with 3 identical walking people, 3 standing
+  people, 5 identical office chairs, 2 dining chairs, a dining table, a sofa and a
+  refrigerator. The models are downloaded from Gazebo Fuel on first use.
+
+`config/fastdds.xml` (set by the Docker image) is required: without it, best-effort
+subscribers lose about 40% of the Ouster clouds.
 
 ## Dependencies
 
