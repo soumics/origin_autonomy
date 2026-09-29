@@ -11,9 +11,21 @@ export ROS_AUTOMATIC_DISCOVERY_RANGE=SUBNET
 ROBOT_RMW=rmw_cyclonedds_cpp
 SRV=/robot/cmd_vel_controller/set_control_mode
 echo "Switching the Origin One to USER control mode ..."
-if ! RMW_IMPLEMENTATION=$ROBOT_RMW timeout 30 ros2 service call "$SRV" \
-    origin_msgs/srv/SetControlMode "{mode: {mode: 30}}"; then
+if ! REPLY=$(RMW_IMPLEMENTATION=$ROBOT_RMW timeout 30 ros2 service call "$SRV" \
+    origin_msgs/srv/SetControlMode "{mode: {mode: 30}}"); then
   echo "FAILED: $SRV not reachable. Is the stack running and connected to the robot?" >&2
+  exit 1
+fi
+echo "$REPLY" | tail -1
+# The robot refuses USER while a mode with more authority is active: MANUAL (joystick /
+# remote, 10) > TELEOPS (11) > AUTOPILOT (20) and USER (30).
+if ! echo "$REPLY" | grep -q "success=True"; then
+  MODE=$(timeout 8 ros2 topic echo --once /robot/control_mode 2>/dev/null \
+    | grep -o 'mode: [0-9]*' | tail -1 | grep -o '[0-9]*')
+  echo "REFUSED: the robot did not accept USER control (current control mode: ${MODE:-unknown};" \
+       "10 = MANUAL joystick/remote, 11 = TELEOPS, 20 = AUTOPILOT)." >&2
+  echo "The joystick/remote has priority: release it (turn the joystick off or disconnect" \
+       "its Bluetooth) and run origin-enable-driving again. Nothing will drive until then." >&2
   exit 1
 fi
 # Call directly (ros2 service call waits for discovery; a fresh `service list` may be empty).
