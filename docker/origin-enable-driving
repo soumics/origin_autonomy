@@ -21,5 +21,8 @@ if timeout 20 ros2 service call /frontier_explorer/start std_srvs/srv/Trigger "{
     | grep -q "success=True"; then
   echo "Frontier exploration started: the robot spins once, then explores."
 else
-  echo "No frontier explorer answered (navigate mode?): send goals with RViz '2D Goal Pose'."
+  echo "NO FRONTIER EXPLORER: the stack runs in NAVIGATE mode (a finished map was found), so" \
+       "the robot only moves to goals you send with RViz '2D Goal Pose'." >&2
+  echo "To explore from scratch instead: restart the container with" \
+       "'ros2 launch origin_bringup bringup.launch.py sim:=false mode:=explore'." >&2
 fi

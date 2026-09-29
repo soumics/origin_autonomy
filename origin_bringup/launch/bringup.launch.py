@@ -210,14 +210,25 @@ def launch_setup(context):
     if mode not in ("auto", "explore", "navigate"):
         raise RuntimeError(f"mode must be auto, explore or navigate, got '{mode}'")
     have_map = os.path.isfile(database)
+    # mission_manager writes <database>.yaml/.pgm when exploration finishes. A database without
+    # it is an interrupted exploration (e.g. a stopped container), not a map to navigate in.
+    finished_map = os.path.splitext(database)[0] + ".yaml"
+    have_finished_map = have_map and os.path.isfile(finished_map)
     if mode == "auto":
-        mode = "navigate" if have_map else "explore"
+        mode = "navigate" if have_finished_map else "explore"
+        if have_map and not have_finished_map:
+            print(f"{database} is an unfinished exploration: exploring again", flush=True)
     if mode == "navigate" and not have_map:
         raise RuntimeError(f"mode:=navigate needs a saved map, {database} does not exist")
     if mode == "explore" and have_map:
-        backup = database + datetime.datetime.now().strftime(".%Y%m%d-%H%M%S.bak")
-        shutil.move(database, backup)
-        print(f"Existing map kept as {backup}", flush=True)
+        stamp = datetime.datetime.now().strftime(".%Y%m%d-%H%M%S.bak")
+        shutil.move(database, database + stamp)
+        for ext in (".yaml", ".pgm"):
+            old = os.path.splitext(database)[0] + ext
+            if os.path.isfile(old):
+                shutil.move(old, old + stamp)
+        print(f"Existing map kept as {database + stamp}", flush=True)
+        have_map = False
 
     backend = arg("backend")
     use_sim_time = "true" if sim else "false"
