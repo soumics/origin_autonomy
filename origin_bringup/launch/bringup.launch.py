@@ -291,9 +291,14 @@ def launch_setup(context):
                  parameters=[{"use_sim_time": sim, "database_path": database}]),
         ]
     else:
+        # Gazebo always respawns the robot where mapping started; restoring the last saved
+        # localization pose instead puts it at the end pose of the mapping run (wrong heading).
+        start_at_origin = arg("start_at_origin")
+        if start_at_origin == "auto":
+            start_at_origin = "true" if sim else "false"
         stack = [
             _include("origin_lidar_localization", "slam.launch.py", use_sim_time=use_sim_time,
-                     localization="true", start_at_origin=arg("start_at_origin"),
+                     localization="true", start_at_origin=start_at_origin,
                      database_path=database, lidar_topic=topics["lidar"]),
             _include("origin_frontier_explore", "navigation.launch.py",
                      use_sim_time=use_sim_time, backend=backend, **nav_topics),
@@ -344,8 +349,10 @@ def generate_launch_description():
                                           "(Avular's documented way); false: direct DDS"),
         DeclareLaunchArgument("bridge_ros_distro", default_value="jazzy",
                               description="ROS_DISTRO for the local bridge (this PC runs Jazzy)"),
-        DeclareLaunchArgument("start_at_origin", default_value="false",
-                              description="navigate mode: robot starts where mapping started"),
+        DeclareLaunchArgument("start_at_origin", default_value="auto",
+                              description="navigate mode: true = robot starts where mapping "
+                                          "started, false = where it was last localized; "
+                                          "auto = true in simulation, false on the robot"),
         DeclareLaunchArgument("perception", default_value="true"),
         DeclareLaunchArgument("yolo_model", default_value="",
                               description="Override YOLO weights, e.g. yolo26s.pt"),
