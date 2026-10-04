@@ -1,4 +1,4 @@
-# RViz layout for demo videos: whole office top-down, YOLO image docked, no settings panels.
+# RViz layout for demo videos: 3D lidar map + live Ouster scan of the whole office, YOLO image docked, no settings panels.
 Panels:
 - Class: rviz_common/Displays
   Help Height: 138
@@ -14,7 +14,7 @@ Visualization Manager:
     Cell Size: 1
     Class: rviz_default_plugins/Grid
     Color: 160; 160; 164
-    Enabled: true
+    Enabled: false
     Line Style:
       Line Width: 0.029999999329447746
       Value: Lines
@@ -27,12 +27,12 @@ Visualization Manager:
     Plane: XY
     Plane Cell Count: 10
     Reference Frame: <Fixed Frame>
-    Value: true
+    Value: false
   - Class: rviz_default_plugins/Map
     Name: Map
     Enabled: true
     Value: true
-    Alpha: 1.0
+    Alpha: 0.35
     Color Scheme: map
     Draw Behind: true
     Topic:
@@ -99,7 +99,7 @@ Visualization Manager:
       Value: /origin/lidar_viz
       Filter size: 50
     Style: Points
-    Size (Pixels): 1
+    Size (Pixels): 2
     Size (m): 0.02
     Alpha: 1
     Color Transformer: FlatColor
@@ -123,8 +123,8 @@ Visualization Manager:
     Keep: 50
   - Class: rviz_default_plugins/PointCloud2
     Name: CloudMap3D
-    Enabled: false
-    Value: false
+    Enabled: true
+    Value: true
     Topic:
       Depth: 5
       Durability Policy: Transient Local
@@ -132,7 +132,7 @@ Visualization Manager:
       Reliability Policy: Reliable
       Value: /rtabmap/cloud_obstacles
     Style: Points
-    Size (Pixels): 2
+    Size (Pixels): 3
     Size (m): 0.05
     Alpha: 1
     Color Transformer: AxisColor
@@ -145,8 +145,8 @@ Visualization Manager:
     Queue Size: 10
   - Class: rviz_default_plugins/Map
     Name: LocalCostmap
-    Enabled: true
-    Value: true
+    Enabled: false
+    Value: false
     Alpha: 0.5
     Color Scheme: costmap
     Draw Behind: false
@@ -312,21 +312,26 @@ Visualization Manager:
   Value: true
   Views:
     Current:
-      Class: rviz_default_plugins/TopDownOrtho
-      Angle: 0
+      Class: rviz_default_plugins/Orbit
+      Distance: 23.5
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
+      Focal Point:
+        X: 0.5
+        Y: 0.5
+        Z: 0.0
+      Focal Shape Fixed Size: true
+      Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Scale: 62
+      Pitch: 0.78
       Target Frame: <Fixed Frame>
-      Value: TopDownOrtho (rviz_default_plugins)
-      X: 0
-      Y: 0
+      Value: Orbit (rviz_default_plugins)
+      Yaw: 3.93
     Saved: null
 Window Geometry:
   BehaviorPlugin:
